@@ -12,7 +12,7 @@ Planet Wars SI is an on-chain territory game built for **Robinhood Chain Testnet
 | **Marketplace** | **SI broadcasts** |
 | ![Marketplace](screenshots/03-marketplace.png) | ![SI feed](screenshots/04-si-broadcasts.png) |
 
-More shots: [burn dashboard](screenshots/05-burn-dashboard.png), [portfolio](screenshots/06-portfolio.png).
+More shots: [burn dashboard](screenshots/05-burn-dashboard.png), [portfolio](screenshots/06-portfolio.png), and the live testnet build: [landing](screenshots/07-testnet-landing.png), [burn](screenshots/08-testnet-burn.png), [marketplace](screenshots/09-testnet-marketplace.png).
 
 ---
 
@@ -22,6 +22,7 @@ More shots: [burn dashboard](screenshots/05-burn-dashboard.png), [portfolio](scr
 - [Tokenomics & burn routes](#tokenomics--burn-routes)
 - [The SI (off-chain game engine)](#the-si-off-chain-game-engine)
 - [Network: Robinhood Chain Testnet](#network-robinhood-chain-testnet)
+- [Live deployment](#live-deployment-robinhood-chain-testnet-46630)
 - [Local setup (anvil, end-to-end)](#local-setup-anvil-end-to-end)
 - [Deploying to Robinhood Chain Testnet](#deploying-to-robinhood-chain-testnet)
 - [Deploying the web app (Vercel)](#deploying-the-web-app-vercel)
@@ -150,6 +151,25 @@ Sources:
 - <https://robinhood.com/us/en/support/articles/robinhood-chain-testnet/>
 
 **Fallback.** `NEXT_PUBLIC_CHAIN_ID=84532` switches the app to Base Sepolia (a `base_sepolia` RPC alias is also in `foundry.toml`). The default target is Robinhood Chain Testnet.
+
+## Live deployment: Robinhood Chain Testnet (46630)
+
+Deployed on 2026-10-05 from `0x6F9AC937d6621226943FD3bB9a5B7e33EC81a616`. The first deploy transaction is in L2 block 128923025. All six contracts are source-verified on Blockscout.
+
+| Contract | Address |
+| --- | --- |
+| PWSIToken | [`0xd3B16975DEAdae0792C05482228f6764CFD6Ac08`](https://explorer.testnet.chain.robinhood.com/address/0xd3B16975DEAdae0792C05482228f6764CFD6Ac08) |
+| PWSIFaucet | [`0xf6f03a7796A3A9d9a97c817Cfeb74E3759f65c51`](https://explorer.testnet.chain.robinhood.com/address/0xf6f03a7796A3A9d9a97c817Cfeb74E3759f65c51) |
+| BuybackBurnTreasury | [`0x74989BF4e70f4886EeeaeD0a1d52cB698248b498`](https://explorer.testnet.chain.robinhood.com/address/0x74989BF4e70f4886EeeaeD0a1d52cB698248b498) |
+| PlanetTerritory | [`0xA10Fdd2EFc21B4AbA2E30013A76EeAa1bE067639`](https://explorer.testnet.chain.robinhood.com/address/0xA10Fdd2EFc21B4AbA2E30013A76EeAa1bE067639) |
+| TerritoryMarketplace | [`0x75f9e415Eb337C27E2fC554EfF751832F67c621B`](https://explorer.testnet.chain.robinhood.com/address/0x75f9e415Eb337C27E2fC554EfF751832F67c621B) |
+| PlanetOps | [`0xc154115B0E1e6851A5f5aCce366f890fDaB19046`](https://explorer.testnet.chain.robinhood.com/address/0xc154115B0E1e6851A5f5aCce366f890fDaB19046) |
+
+The NFT metadata base URI is set to `https://planet-wars-si.vercel.app/api/metadata/`. If the app ends up on a different domain, the owner can change it with `PlanetTerritory.setBaseURI`.
+
+`scripts/smoke-testnet.sh` re-runs the live smoke test: faucet, claim, upgrade, mission, list, and a buy from a throwaway wallet.
+
+**Note on block numbers.** Robinhood Chain is Arbitrum-based, so Solidity's `block.number` returns the L1 block. `npm run contracts:sync` therefore takes the deploy block from the forge broadcast receipts, which carry L2 block numbers.
 
 ## Local setup (anvil, end-to-end)
 
