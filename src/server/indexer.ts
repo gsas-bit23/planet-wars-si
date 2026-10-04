@@ -39,11 +39,16 @@ async function getLogsChunked<T>(fetcher: (from: bigint, to: bigint) => Promise<
   return out;
 }
 
-async function build(): Promise<Snapshot> {
+/**
+ * Incremental: the first call scans from the deploy block, later calls only scan blocks after the
+ * previous snapshot (fast L2s like Robinhood Chain produce several blocks per second).
+ */
+async function build(prev?: Snapshot): Promise<Snapshot> {
   if (!addresses) return { at: Date.now(), latest: 0, burns: [], missions: [] };
   const A = addresses;
   const latest = await publicClient.getBlockNumber();
-  const from = BigInt(A.deployBlock);
+  const from = prev ? BigInt(prev.latest) + 1n : BigInt(A.deployBlock);
+  if (prev && from > latest) return { ...prev, at: Date.now() };
 
   const [burnLogs, opsLogs] = await Promise.all([
     getLogsChunked(
@@ -90,13 +95,18 @@ async function build(): Promise<Snapshot> {
     block: Number(l.blockNumber),
   }));
 
-  return { at: Date.now(), latest: Number(latest), burns, missions };
+  return {
+    at: Date.now(),
+    latest: Number(latest),
+    burns: prev ? [...prev.burns, ...burns] : burns,
+    missions: prev ? [...prev.missions, ...missions] : missions,
+  };
 }
 
 /** Cached on-chain snapshot of burns and missions (15s TTL, single-flight). */
 export async function getChainSnapshot(): Promise<Snapshot> {
   if (cache.snap && Date.now() - cache.snap.at < TTL_MS) return cache.snap;
-  cache.inflight ??= build()
+  cache.inflight ??= build(cache.snap)
     .then((s) => (cache.snap = s))
     .finally(() => (cache.inflight = undefined));
   try {

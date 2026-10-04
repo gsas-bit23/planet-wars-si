@@ -16,12 +16,22 @@ export type Deployment = {
 export const deployments: Record<number, Deployment> = {
   "31337": {
     "chainId": 31337,
-    "deployBlock": 1,
+    "deployBlock": 6,
     "token": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     "faucet": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
     "treasury": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
     "territory": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
     "marketplace": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
     "ops": "0x0165878A594ca255338adfa4d48449f69242Eb8F"
+  },
+  "46630": {
+    "chainId": 46630,
+    "deployBlock": 128923025,
+    "token": "0xd3B16975DEAdae0792C05482228f6764CFD6Ac08",
+    "faucet": "0xf6f03a7796A3A9d9a97c817Cfeb74E3759f65c51",
+    "treasury": "0x74989BF4e70f4886EeeaeD0a1d52cB698248b498",
+    "territory": "0xA10Fdd2EFc21B4AbA2E30013A76EeAa1bE067639",
+    "marketplace": "0x75f9e415Eb337C27E2fC554EfF751832F67c621B",
+    "ops": "0xc154115B0E1e6851A5f5aCce366f890fDaB19046"
   }
 };

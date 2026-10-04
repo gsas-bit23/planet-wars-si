@@ -42,9 +42,19 @@ const deployments = {};
 if (existsSync(deploymentsDir)) {
   for (const f of readdirSync(deploymentsDir).filter((f) => f.endsWith(".json"))) {
     const d = JSON.parse(readFileSync(join(deploymentsDir, f), "utf8"));
+    // On Arbitrum-based chains (Robinhood Chain) Solidity's block.number is the *L1* block, so the
+    // value recorded by Deploy.s.sol is not a valid L2 log-scan start. Prefer the earliest L2
+    // receipt from the forge broadcast when it exists.
+    let deployBlock = d.deployBlock;
+    const run = join(root, "contracts", "broadcast", "Deploy.s.sol", String(d.chainId), "run-latest.json");
+    if (existsSync(run)) {
+      const receipts = JSON.parse(readFileSync(run, "utf8")).receipts ?? [];
+      const blocks = receipts.map((r) => parseInt(r.blockNumber, 16)).filter(Number.isFinite);
+      if (blocks.length) deployBlock = Math.min(...blocks);
+    }
     deployments[d.chainId] = {
       chainId: d.chainId,
-      deployBlock: d.deployBlock,
+      deployBlock,
       token: d.token,
       faucet: d.faucet,
       treasury: d.treasury,
