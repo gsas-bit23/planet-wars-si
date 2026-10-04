@@ -6,7 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "contracts:build": "cd contracts && forge build",
+    "test:contracts": "cd contracts && forge test",
+    "contracts:fmt": "cd contracts && forge fmt --check",
+    "contracts:sync": "node scripts/sync-contracts.mjs",
+    "e2e": "node e2e/flow.mjs",
+    "screenshots": "node e2e/screenshots.mjs",
+    "check": "npm run typecheck && npm run lint && npm run test:contracts && npm run build"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
