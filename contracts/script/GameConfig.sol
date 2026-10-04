@@ -13,7 +13,11 @@ library GameConfig {
     uint256 internal constant FAUCET_DRIP = 2_500 ether;
     uint256 internal constant FAUCET_COOLDOWN = 24 hours;
     uint16 internal constant MARKET_FEE_BPS = 100; // 1%
-    uint16 internal constant PRIMARY_BURN_BPS = 5_000; // 50% of primary claims burned
+    uint16 internal constant BURN_BPS = 1_000; // 10% of all revenue burned, 90% to the RewardPool
+    uint96 internal constant ROYALTY_BPS = 100; // ERC-2981 1% → treasury
+    uint16 internal constant EPOCH_BUDGET_BPS = 2_000; // a daily epoch may allocate ≤20% of unallocated rewards
+    uint16 internal constant LOTTERY_BPS = 3_000; // 30% of an epoch budget → lottery, 70% → leaderboard
+    uint256 internal constant TESTNET_AIRDROP = 10_000_000 ether; // testnet airdrop allocation (minted)
     uint256 internal constant UPGRADE_BASE_COST = 50 ether;
     uint256 internal constant SHIELD_UNIT_COST = 2 ether;
 

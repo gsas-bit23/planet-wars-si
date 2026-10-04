@@ -10,7 +10,8 @@ contract PWSITokenTest is BaseTest {
         assertEq(token.name(), "Planet Wars SI");
         assertEq(token.symbol(), "PWSI");
         assertEq(token.decimals(), 18);
-        assertEq(token.totalSupply(), 0);
+        assertEq(token.totalSupply(), AIRDROP); // only the testnet airdrop allocation is pre-minted
+        assertEq(token.balanceOf(address(pool)), AIRDROP);
     }
 
     function test_MintRequiresRole() public {
@@ -24,7 +25,7 @@ contract PWSITokenTest is BaseTest {
     }
 
     function test_MintCapCountsLifetime() public {
-        token.mint(alice, token.MAX_SUPPLY());
+        token.mint(alice, token.MAX_SUPPLY() - token.totalMinted());
         vm.prank(alice);
         token.burn(10 ether);
         // Burned tokens can never be re-minted.
@@ -35,7 +36,7 @@ contract PWSITokenTest is BaseTest {
     }
 
     function testFuzz_BurnAccounting(uint256 minted, uint256 burned) public {
-        minted = bound(minted, 1, token.MAX_SUPPLY());
+        minted = bound(minted, 1, token.MAX_SUPPLY() - token.totalMinted());
         burned = bound(burned, 0, minted);
         token.mint(alice, minted);
         vm.prank(alice);

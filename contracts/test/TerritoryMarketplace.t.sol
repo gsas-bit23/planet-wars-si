@@ -39,11 +39,12 @@ contract TerritoryMarketplaceTest is BaseTest {
         assertEq(market.listingsOf(alice).length, 1);
     }
 
-    function test_BuyPaysSellerAndBurnsFee() public {
+    function test_BuyPaysSellerAndSplitsFee() public {
         _list(alice, plotId, 100 ether);
         uint256 aliceBefore = token.balanceOf(alice);
         uint256 bobBefore = token.balanceOf(bob);
         uint256 supplyBefore = token.totalSupply();
+        uint256 rewardsBefore = pool.rewardsAvailable();
 
         vm.expectEmit(true, true, true, true, address(market));
         emit TerritoryMarketplace.Sale(plotId, alice, bob, 100 ether, 1 ether);
@@ -53,9 +54,10 @@ contract TerritoryMarketplaceTest is BaseTest {
         assertEq(territory.ownerOf(plotId), bob);
         assertEq(token.balanceOf(alice) - aliceBefore, 99 ether);
         assertEq(bobBefore - token.balanceOf(bob), 100 ether);
-        assertEq(supplyBefore - token.totalSupply(), 1 ether, "fee burned");
+        assertEq(supplyBefore - token.totalSupply(), 0.1 ether, "10% of fee burned");
+        assertEq(pool.rewardsAvailable() - rewardsBefore, 0.9 ether, "90% of fee pooled");
         assertEq(token.balanceOf(address(treasury)), 0);
-        assertEq(treasury.totalFeesBurned(), 1 ether);
+        assertEq(treasury.revenueBySource(4), 1 ether);
         assertEq(market.totalVolume(), 100 ether);
         assertEq(market.totalFees(), 1 ether);
         assertEq(market.tradeCount(), 1);
@@ -63,14 +65,12 @@ contract TerritoryMarketplaceTest is BaseTest {
         assertEq(market.listingsOf(alice).length, 0);
     }
 
-    function test_FeeAccruesWhenAutoBurnOff() public {
-        market.setAutoBurn(false);
+    function test_TreasuryMustAuthorizeMarketplace() public {
+        treasury.revokeRole(treasury.REVENUE_ROLE(), address(market));
         _list(alice, plotId, 100 ether);
         vm.prank(bob);
+        vm.expectRevert();
         market.buy(plotId, 100 ether);
-        assertEq(token.balanceOf(address(treasury)), 1 ether);
-        treasury.burnAccrued();
-        assertEq(token.balanceOf(address(treasury)), 0);
     }
 
     function test_Cancel() public {
@@ -158,7 +158,7 @@ contract TerritoryMarketplaceTest is BaseTest {
         vm.prank(bob);
         market.buy(plotId, 100 ether);
         assertEq(token.balanceOf(alice) - aliceBefore, 100 ether);
-        assertEq(treasury.totalFeesBurned(), 0);
+        assertEq(treasury.revenueBySource(4), 0);
     }
 
     function test_ActiveListingsPagination() public {
@@ -189,7 +189,7 @@ contract TerritoryMarketplaceTest is BaseTest {
         vm.prank(carol);
         market.buy(plotId, 200 ether);
         assertEq(territory.ownerOf(plotId), carol);
-        assertEq(treasury.totalFeesBurned(), 3 ether);
+        assertEq(treasury.revenueBySource(4), 3 ether);
         assertEq(market.tradeCount(), 2);
     }
 
@@ -205,7 +205,7 @@ contract TerritoryMarketplaceTest is BaseTest {
         assertLe(fee, uint256(price) * 500 / 10_000);
     }
 
-    /// @notice End-to-end sale at any price: balances, burn and supply all reconcile.
+    /// @notice End-to-end sale at any price: balances, burn, pool and supply all reconcile.
     function testFuzz_SaleSettlement(uint256 price, uint16 bps) public {
         price = bound(price, market.MIN_PRICE(), 500_000 ether);
         bps = uint16(bound(bps, 0, market.MAX_FEE_BPS()));
@@ -216,6 +216,7 @@ contract TerritoryMarketplaceTest is BaseTest {
         uint256 bobBefore = token.balanceOf(bob);
         uint256 supplyBefore = token.totalSupply();
         uint256 burnedBefore = token.totalBurned();
+        uint256 poolBefore = token.balanceOf(address(pool));
 
         vm.prank(bob);
         market.buy(plotId, price);
@@ -223,8 +224,11 @@ contract TerritoryMarketplaceTest is BaseTest {
         uint256 expectedFee = (price * bps) / 10_000;
         assertEq(bobBefore - token.balanceOf(bob), price, "buyer pays price");
         assertEq(token.balanceOf(alice) - aliceBefore, price - expectedFee, "seller proceeds");
-        assertEq(supplyBefore - token.totalSupply(), expectedFee, "fee burned");
-        assertEq(token.totalBurned() - burnedBefore, expectedFee);
+        assertEq(supplyBefore - token.totalSupply(), _burnPart(expectedFee), "burn share");
+        assertEq(token.totalBurned() - burnedBefore, _burnPart(expectedFee));
+        assertEq(
+            token.balanceOf(address(pool)) - poolBefore, expectedFee - _burnPart(expectedFee), "pool share"
+        );
         assertEq(token.balanceOf(address(treasury)), 0, "treasury holds nothing");
         assertEq(territory.ownerOf(plotId), bob);
     }

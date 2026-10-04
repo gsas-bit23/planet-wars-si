@@ -7,7 +7,9 @@ import {PWSIToken} from "../src/PWSIToken.sol";
 import {PWSIFaucet} from "../src/PWSIFaucet.sol";
 import {PlanetTerritory} from "../src/PlanetTerritory.sol";
 import {TerritoryMarketplace} from "../src/TerritoryMarketplace.sol";
-import {BuybackBurnTreasury} from "../src/BuybackBurnTreasury.sol";
+import {RevenueTreasury} from "../src/RevenueTreasury.sol";
+import {RewardPool} from "../src/RewardPool.sol";
+import {DailyDraw} from "../src/DailyDraw.sol";
 import {PlanetOps} from "../src/PlanetOps.sol";
 
 abstract contract BaseTest is Test {
@@ -15,27 +17,46 @@ abstract contract BaseTest is Test {
     PWSIFaucet internal faucet;
     PlanetTerritory internal territory;
     TerritoryMarketplace internal market;
-    BuybackBurnTreasury internal treasury;
+    RevenueTreasury internal treasury;
+    RewardPool internal pool;
+    DailyDraw internal draw;
     PlanetOps internal ops;
 
     address internal admin = address(this);
-    address internal fund = makeAddr("resistanceFund");
+    address internal operator = makeAddr("operator");
     address internal alice = makeAddr("alice");
     address internal bob = makeAddr("bob");
     address internal carol = makeAddr("carol");
 
     uint256 internal constant EARTH = 3;
     uint256 internal constant JUPITER = 5;
+    uint256 internal constant AIRDROP = 1_000_000 ether;
+
+    /// @dev 10% burned, 90% pooled (default split).
+    function _burnPart(uint256 amount) internal pure returns (uint256) {
+        return (amount * 1_000) / 10_000;
+    }
 
     function setUp() public virtual {
         vm.warp(1_750_000_000);
-        DeployLib.Suite memory s = DeployLib.deploy(admin, fund, "https://pwsi.test/api/metadata/");
+        DeployLib.Suite memory s = DeployLib.deployTestnet(
+            DeployLib.Params({
+                admin: admin,
+                operator: operator,
+                baseURI: "https://pwsi.test/api/metadata/",
+                contractURI: "https://pwsi.test/api/metadata/contract",
+                burnMode: RevenueTreasury.BurnMode.BurnFunction
+            }),
+            AIRDROP
+        );
         token = s.token;
         faucet = s.faucet;
-        territory = s.territory;
-        market = s.marketplace;
-        treasury = s.treasury;
-        ops = s.ops;
+        territory = s.game.territory;
+        market = s.game.marketplace;
+        treasury = s.game.treasury;
+        pool = s.game.pool;
+        draw = s.game.draw;
+        ops = s.game.ops;
         // Test-only minter so we can fund accounts beyond the faucet drip.
         token.grantRole(token.MINTER_ROLE(), admin);
     }

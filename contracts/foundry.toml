@@ -26,6 +26,7 @@ runs = 10000
 [rpc_endpoints]
 anvil = "http://127.0.0.1:8545"
 robinhood_testnet = "https://rpc.testnet.chain.robinhood.com"
+robinhood_mainnet = "https://rpc.mainnet.chain.robinhood.com"
 base_sepolia = "https://sepolia.base.org"
 
 [fmt]

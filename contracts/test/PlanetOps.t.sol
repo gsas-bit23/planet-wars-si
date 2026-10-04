@@ -14,7 +14,7 @@ contract PlanetOpsTest is BaseTest {
         plotId = _claimAs(alice, EARTH, 0);
     }
 
-    function test_UpgradeBurnsScalingCost() public {
+    function test_UpgradeChargesScalingCost() public {
         uint256 supply = token.totalSupply();
         vm.startPrank(alice);
         assertEq(ops.upgradeCost(plotId), 50 ether);
@@ -23,8 +23,10 @@ contract PlanetOpsTest is BaseTest {
         assertEq(ops.upgradeCost(plotId), 100 ether);
         ops.upgrade(plotId);
         vm.stopPrank();
-        assertEq(supply - token.totalSupply(), 150 ether);
-        assertEq(ops.totalSinkBurned(), 150 ether);
+        assertEq(supply - token.totalSupply(), _burnPart(150 ether));
+        assertEq(ops.totalSinkRevenue(), 150 ether);
+        assertEq(treasury.revenueBySource(1), 150 ether, "upgrade source");
+        assertEq(token.balanceOf(address(treasury)), 0);
     }
 
     function test_UpgradeCapsAtMaxLevel() public {
@@ -39,7 +41,7 @@ contract PlanetOpsTest is BaseTest {
         assertEq(lvl, 10);
         assertEq(next, 0);
         // 50 * (1+2+...+10)
-        assertEq(ops.totalSinkBurned(), 50 ether * 55);
+        assertEq(ops.totalSinkRevenue(), 50 ether * 55);
     }
 
     function test_LevelPersistsAcrossTransfers() public {
@@ -78,7 +80,7 @@ contract PlanetOpsTest is BaseTest {
         vm.prank(alice);
         uint16 total = ops.buildShield(plotId, 25);
         assertEq(total, 25);
-        assertEq(supply - token.totalSupply(), 50 ether);
+        assertEq(supply - token.totalSupply(), _burnPart(50 ether));
         vm.expectRevert(PlanetOps.ShieldCap.selector);
         vm.prank(alice);
         ops.buildShield(plotId, 976);
@@ -92,7 +94,7 @@ contract PlanetOpsTest is BaseTest {
         uint256 supply = token.totalSupply();
         vm.prank(alice);
         ops.buildShield(plotId, units);
-        assertEq(supply - token.totalSupply(), uint256(units) * 2 ether);
+        assertEq(supply - token.totalSupply(), _burnPart(uint256(units) * 2 ether));
         assertEq(ops.shieldOf(plotId), units);
     }
 
@@ -104,7 +106,8 @@ contract PlanetOpsTest is BaseTest {
         vm.stopPrank();
         assertEq(m1, 1);
         assertEq(m2, 2);
-        assertEq(supply - token.totalSupply(), 225 ether);
+        assertEq(supply - token.totalSupply(), _burnPart(225 ether));
+        assertEq(treasury.revenueBySource(3), 225 ether, "mission source");
         vm.expectRevert(abi.encodeWithSelector(PlanetOps.UnknownMission.selector, 3));
         vm.prank(bob);
         ops.launchMission(EARTH, 3);

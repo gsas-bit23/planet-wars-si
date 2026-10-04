@@ -6,31 +6,63 @@ import {BaseTest} from "../Base.t.sol";
 import {PWSIToken} from "../../src/PWSIToken.sol";
 import {PlanetTerritory} from "../../src/PlanetTerritory.sol";
 import {TerritoryMarketplace} from "../../src/TerritoryMarketplace.sol";
-import {BuybackBurnTreasury} from "../../src/BuybackBurnTreasury.sol";
 import {PlanetOps} from "../../src/PlanetOps.sol";
+import {RewardPool} from "../../src/RewardPool.sol";
 
-/// @dev Random walk of claims, listings, sales, cancels and sinks across a few actors.
+/// @dev Random walk of claims, listings, sales, cancels, sinks, reward epochs, claims and sweeps.
 contract EconomyHandler is Test {
     PWSIToken internal token;
     PlanetTerritory internal territory;
     TerritoryMarketplace internal market;
     PlanetOps internal ops;
+    RewardPool internal pool;
+    address internal publisher;
 
     address[] internal actors;
     uint256 public ghostFees;
     uint256 public ghostSinks;
+    uint256 public ghostClaimed;
+    uint256 public doubleClaimSuccesses;
+    uint256 public nextDay;
 
-    constructor(PWSIToken t, PlanetTerritory te, TerritoryMarketplace m, PlanetOps o, address[] memory a) {
+    struct Alloc {
+        uint256 epochId;
+        address account;
+        uint256 amount;
+        bytes32 sibling;
+    }
+
+    Alloc[] internal allocs;
+    uint256[] public epochList;
+
+    constructor(
+        PWSIToken t,
+        PlanetTerritory te,
+        TerritoryMarketplace m,
+        PlanetOps o,
+        RewardPool p,
+        address pub,
+        address[] memory a
+    ) {
         token = t;
         territory = te;
         market = m;
         ops = o;
+        pool = p;
+        publisher = pub;
         actors = a;
+        nextDay = block.timestamp / 1 days - 1;
+    }
+
+    function epochCount() external view returns (uint256) {
+        return epochList.length;
     }
 
     function _actor(uint256 seed) internal view returns (address) {
         return actors[seed % actors.length];
     }
+
+    // ---------------------------------------------------------------- game actions
 
     function claim(uint256 actorSeed, uint256 plotSeed) external {
         address a = _actor(actorSeed);
@@ -82,6 +114,78 @@ contract EconomyHandler is Test {
         vm.prank(a);
         ops.upgrade(id);
     }
+
+    function mission(uint256 actorSeed, uint8 kind) external {
+        kind = uint8(bound(kind, 0, 2));
+        ghostSinks += ops.missionCost(kind);
+        vm.prank(_actor(actorSeed));
+        ops.launchMission(3, kind);
+    }
+
+    // ---------------------------------------------------------------- reward epochs
+
+    /// Publish a two-recipient rewards epoch (or a two-recipient airdrop) sized within the caps.
+    function publish(uint256 seed, bool airdrop) external {
+        address a = _actor(seed);
+        address b = _actor(seed + 1);
+        if (a == b) return;
+        uint256 epochId;
+        uint256 amtA;
+        uint256 amtB;
+        if (airdrop) {
+            uint256 avail = pool.airdropAvailable();
+            if (avail < 2) return;
+            epochId = pool.AIRDROP_EPOCH_BASE() + epochList.length;
+            amtA = bound(seed, 1, avail / 2);
+            amtB = bound(seed >> 8, 1, avail / 2);
+        } else {
+            (uint256 lbCap, uint256 lotCap) = pool.splitFor(pool.epochCap());
+            if (lbCap < 1 || lotCap < 1) return;
+            nextDay += 1;
+            vm.warp((nextDay + 1) * 1 days + 1);
+            epochId = nextDay;
+            amtA = bound(seed, 1, lbCap); // leaderboard winner
+            amtB = bound(seed >> 8, 1, lotCap); // lottery winner
+        }
+        bytes32 la = pool.leaf(epochId, a, amtA);
+        bytes32 lb = pool.leaf(epochId, b, amtB);
+        bytes32 root = la < lb ? keccak256(abi.encode(la, lb)) : keccak256(abi.encode(lb, la));
+        vm.startPrank(publisher);
+        if (airdrop) pool.publishAirdrop(epochId, root, amtA + amtB, 2, "");
+        else pool.publishRewards(epochId, root, amtA, amtB, 2, "");
+        vm.stopPrank();
+        epochList.push(epochId);
+        allocs.push(Alloc(epochId, a, amtA, lb));
+        allocs.push(Alloc(epochId, b, amtB, la));
+    }
+
+    function claimReward(uint256 idx) external {
+        if (allocs.length == 0) return;
+        Alloc memory al = allocs[idx % allocs.length];
+        RewardPool.Epoch memory e = pool.epoch(al.epochId);
+        bool expired = e.swept || block.timestamp > uint256(e.publishedAt) + pool.CLAIM_WINDOW();
+        bool already = pool.claimed(al.epochId, al.account);
+        bytes32[] memory proof = new bytes32[](1);
+        proof[0] = al.sibling;
+        if (already || expired) {
+            try pool.claim(al.epochId, al.account, al.amount, proof) {
+                doubleClaimSuccesses++;
+            } catch {}
+            return;
+        }
+        pool.claim(al.epochId, al.account, al.amount, proof);
+        ghostClaimed += al.amount;
+    }
+
+    function sweepOld(uint256 idx) external {
+        if (epochList.length == 0) return;
+        uint256 id = epochList[idx % epochList.length];
+        RewardPool.Epoch memory e = pool.epoch(id);
+        if (e.swept) return;
+        vm.warp(uint256(e.publishedAt) + pool.CLAIM_WINDOW() + 1);
+        if (block.timestamp / 1 days > nextDay + 1) nextDay = block.timestamp / 1 days - 1;
+        pool.sweep(id);
+    }
 }
 
 contract EconomyInvariantTest is BaseTest {
@@ -96,7 +200,7 @@ contract EconomyInvariantTest is BaseTest {
         for (uint256 i; i < 3; ++i) {
             _fund(actors[i], 10_000_000 ether);
         }
-        handler = new EconomyHandler(token, territory, market, ops, actors);
+        handler = new EconomyHandler(token, territory, market, ops, pool, operator, actors);
         targetContract(address(handler));
     }
 
@@ -105,24 +209,58 @@ contract EconomyInvariantTest is BaseTest {
         assertEq(token.totalSupply() + token.totalBurned(), token.totalMinted());
     }
 
-    /// Every fee is burned in the same tx: the treasury never holds PWSI.
+    /// Revenue is split in the same tx: the treasury never holds PWSI.
     function invariant_TreasuryHoldsNoTokens() public view {
         assertEq(token.balanceOf(address(treasury)), 0);
     }
 
-    /// Fee accounting matches the expected 1% of each sale, and all of it was burned.
-    function invariant_FeesMatchGhost() public view {
-        assertEq(market.totalFees(), handler.ghostFees());
-        assertEq(treasury.totalFeesBurned(), handler.ghostFees());
-        assertEq(ops.totalSinkBurned(), handler.ghostSinks());
+    /// The split always sums to 100%: every unit of revenue is either burned or pooled.
+    function invariant_SplitSumsToRevenue() public view {
+        assertEq(treasury.totalBurned() + treasury.totalPooled(), treasury.totalRevenue());
+        uint256[] memory bySource = treasury.revenueBreakdown();
+        uint256 sum;
+        for (uint256 i; i < bySource.length; ++i) {
+            sum += bySource[i];
+        }
+        assertEq(sum, treasury.totalRevenue());
     }
 
-    /// Burn total equals the sum of every burn route.
-    function invariant_BurnRoutesReconcile() public view {
+    /// Revenue equals claims + sinks + marketplace fees (ghost-tracked), and only the treasury burns.
+    function invariant_RevenueMatchesGhost() public view {
+        assertEq(market.totalFees(), handler.ghostFees());
+        assertEq(ops.totalSinkRevenue(), handler.ghostSinks());
         assertEq(
-            token.totalBurned(),
-            treasury.totalBurned() + ops.totalSinkBurned() + territory.totalPrimaryBurned()
+            treasury.totalRevenue(),
+            territory.totalPrimaryVolume() + ops.totalSinkRevenue() + market.totalFees()
         );
+        assertEq(token.totalBurned(), treasury.totalBurned());
+    }
+
+    /// Pool accounting conservation: balance = airdrop funding + pooled revenue − claims, and it
+    /// always covers the airdrop reserve plus everything allocated but unclaimed.
+    function invariant_PoolConservation() public view {
+        uint256 bal = token.balanceOf(address(pool));
+        assertEq(bal, AIRDROP + treasury.totalPooled() - pool.totalClaimed());
+        assertGe(bal, pool.airdropAvailable() + pool.outstanding());
+        assertEq(bal, pool.rewardsAvailable() + pool.airdropAvailable() + pool.outstanding());
+        assertEq(pool.totalClaimed(), handler.ghostClaimed());
+    }
+
+    /// Outstanding equals the sum over epochs of (allocated − claimed − swept).
+    function invariant_OutstandingMatchesEpochs() public view {
+        uint256 n = handler.epochCount();
+        uint256 sum;
+        for (uint256 i; i < n; ++i) {
+            RewardPool.Epoch memory e = pool.epoch(handler.epochList(i));
+            if (!e.swept) sum += uint256(e.total) - e.claimed;
+            assertLe(e.claimed, e.total);
+        }
+        assertEq(sum, pool.outstanding());
+    }
+
+    /// No (epoch, account) pair can ever be paid twice, and expired epochs pay nothing.
+    function invariant_NoDoubleClaims() public view {
+        assertEq(handler.doubleClaimSuccesses(), 0);
     }
 
     /// Marketplace escrow equals active listings.

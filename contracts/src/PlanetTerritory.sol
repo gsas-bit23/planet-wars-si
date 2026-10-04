@@ -5,9 +5,11 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {ERC721Enumerable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import {Ownable, Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ERC2981} from "@openzeppelin/contracts/token/common/ERC2981.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {IPWSIToken} from "./interfaces/IPWSIToken.sol";
+import {IRevenueTreasury} from "./interfaces/IRevenueTreasury.sol";
 
 /// @title PlanetTerritory — ERC-721 territory plots across the solar system
 /// @notice Each celestial body is divided into a grid of plots. Plots are claimed from the SI
@@ -15,8 +17,11 @@ import {IPWSIToken} from "./interfaces/IPWSIToken.sol";
 ///         (Common, Rare, Legendary) which multiplies the plot's claim price.
 /// @dev tokenId = bodyId * PLOT_SPACE + plotIndex. New bodies (moons, dwarf planets) can be
 ///      appended at any time with `addBody` without touching existing plots.
-contract PlanetTerritory is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
-    using SafeERC20 for IPWSIToken;
+///      Claim payments go to the RevenueTreasury (burn / reward-pool split). ERC-2981 royalties
+///      (default 1%) also point at the treasury so external marketplaces feed the same split.
+///      `contractURI()` (ERC-7572) serves collection-level metadata for marketplaces.
+contract PlanetTerritory is ERC721Enumerable, ERC2981, Ownable2Step, ReentrancyGuard {
+    using SafeERC20 for IERC20;
     using Strings for uint256;
 
     struct Body {
@@ -42,31 +47,30 @@ contract PlanetTerritory is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     uint256 public constant RARE_MULT_BPS = 25_000; // 2.5x
     uint256 public constant LEGENDARY_MULT_BPS = 100_000; // 10x
 
-    IPWSIToken public immutable token;
-    bytes32 public immutable zoneSalt;
+    uint96 public constant MAX_ROYALTY_BPS = 1_000; // 10% hard cap
+    uint8 internal constant SOURCE_CLAIM = 0;
 
-    /// @notice Recipient of the non-burned share of primary claims (player rewards / ops).
-    address public resistanceFund;
-    /// @notice Share of every primary claim that is burned, in bps.
-    uint16 public primaryBurnBps;
+    IERC20 public immutable token;
+    IRevenueTreasury public immutable treasury;
+    bytes32 public immutable zoneSalt;
 
     uint256 public bodyCount;
     mapping(uint256 bodyId => Body) private _bodies;
     mapping(uint256 bodyId => mapping(uint256 word => uint256 bits)) private _claimedBits;
 
     string private _baseTokenURI;
+    string private _contractURI;
 
     uint256 public totalPrimaryVolume;
-    uint256 public totalPrimaryBurned;
 
     event BodyAdded(uint256 indexed bodyId, string name, uint32 supply, uint32 cols, uint128 basePrice);
     event BodyUpdated(uint256 indexed bodyId, bool active, uint128 basePrice);
     event PlotClaimed(
         address indexed player, uint256 indexed bodyId, uint256 indexed tokenId, Zone zone, uint256 price
     );
-    event PrimarySplit(uint256 burned, uint256 toFund);
-    event PrimaryConfigUpdated(address resistanceFund, uint16 primaryBurnBps);
     event BaseURIUpdated(string baseURI);
+    event ContractURIUpdated();
+    event RoyaltyUpdated(address receiver, uint96 bps);
 
     error UnknownBody(uint256 bodyId);
     error BodyInactive(uint256 bodyId);
@@ -76,16 +80,24 @@ contract PlanetTerritory is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
     error BatchTooLarge();
 
     constructor(
-        IPWSIToken token_,
+        IERC20 token_,
+        IRevenueTreasury treasury_,
         address owner_,
-        address resistanceFund_,
-        uint16 primaryBurnBps_,
-        string memory baseURI_
+        string memory baseURI_,
+        string memory contractURI_,
+        uint96 royaltyBps_
     ) ERC721("Planet Wars SI Territory", "PWSI-T") Ownable(owner_) {
+        if (address(token_) == address(0) || address(treasury_) == address(0)) {
+            revert InvalidConfig();
+        }
+        if (royaltyBps_ > MAX_ROYALTY_BPS) revert InvalidConfig();
         token = token_;
+        treasury = treasury_;
         zoneSalt = keccak256(abi.encode(block.chainid, address(this), "PWSI_ZONES_V1"));
-        _setPrimaryConfig(resistanceFund_, primaryBurnBps_);
         _baseTokenURI = baseURI_;
+        _contractURI = contractURI_;
+        _setDefaultRoyalty(address(treasury_), royaltyBps_);
+        emit RoyaltyUpdated(address(treasury_), royaltyBps_);
     }
 
     // ------------------------------------------------------------------ claims
@@ -135,16 +147,11 @@ contract PlanetTerritory is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         emit PlotClaimed(msg.sender, bodyId, tokenId, zone, price);
     }
 
-    /// @dev Pull payment, burn the configured share, forward the remainder to the fund.
+    /// @dev Pull payment straight into the treasury, which splits it (burn / reward pool).
     function _collect(uint256 amount) internal {
-        uint256 burned = (amount * primaryBurnBps) / BPS;
-        uint256 toFund = amount - burned;
         totalPrimaryVolume += amount;
-        totalPrimaryBurned += burned;
-        emit PrimarySplit(burned, toFund);
-        token.safeTransferFrom(msg.sender, address(this), amount);
-        if (burned > 0) token.burn(burned);
-        if (toFund > 0) token.safeTransfer(resistanceFund, toFund);
+        token.safeTransferFrom(msg.sender, address(treasury), amount);
+        treasury.notifyRevenue(SOURCE_CLAIM);
     }
 
     // ------------------------------------------------------------------ views
@@ -210,6 +217,20 @@ contract PlanetTerritory is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         return string.concat(_baseTokenURI, tokenId.toString());
     }
 
+    /// @notice Collection-level metadata (ERC-7572 / OpenSea `contractURI`).
+    function contractURI() external view returns (string memory) {
+        return _contractURI;
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721Enumerable, ERC2981)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
+    }
+
     // ------------------------------------------------------------------ admin
 
     /// @notice Register a new celestial body (planet, moon, dwarf planet...).
@@ -235,13 +256,22 @@ contract PlanetTerritory is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         emit BodyUpdated(bodyId, active, basePrice);
     }
 
-    function setPrimaryConfig(address resistanceFund_, uint16 primaryBurnBps_) external onlyOwner {
-        _setPrimaryConfig(resistanceFund_, primaryBurnBps_);
-    }
-
     function setBaseURI(string calldata baseURI_) external onlyOwner {
         _baseTokenURI = baseURI_;
         emit BaseURIUpdated(baseURI_);
+    }
+
+    function setContractURI(string calldata contractURI_) external onlyOwner {
+        _contractURI = contractURI_;
+        emit ContractURIUpdated();
+    }
+
+    /// @notice Royalties always go to the treasury (so they enter the burn / reward split); only
+    ///         the rate is adjustable, capped at MAX_ROYALTY_BPS.
+    function setRoyaltyBps(uint96 bps) external onlyOwner {
+        if (bps > MAX_ROYALTY_BPS) revert InvalidConfig();
+        _setDefaultRoyalty(address(treasury), bps);
+        emit RoyaltyUpdated(address(treasury), bps);
     }
 
     // ------------------------------------------------------------------ internal
@@ -255,12 +285,5 @@ contract PlanetTerritory is ERC721Enumerable, Ownable2Step, ReentrancyGuard {
         if (zone == Zone.Legendary) return (basePrice * LEGENDARY_MULT_BPS) / BPS;
         if (zone == Zone.Rare) return (basePrice * RARE_MULT_BPS) / BPS;
         return basePrice;
-    }
-
-    function _setPrimaryConfig(address fund, uint16 burnBps) internal {
-        if (fund == address(0) || burnBps > BPS) revert InvalidConfig();
-        resistanceFund = fund;
-        primaryBurnBps = burnBps;
-        emit PrimaryConfigUpdated(fund, burnBps);
     }
 }

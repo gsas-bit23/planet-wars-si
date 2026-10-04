@@ -7,15 +7,16 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-import {IPWSIToken} from "./interfaces/IPWSIToken.sol";
-import {BuybackBurnTreasury} from "./BuybackBurnTreasury.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IRevenueTreasury} from "./interfaces/IRevenueTreasury.sol";
 
 /// @title TerritoryMarketplace — peer-to-peer territory trading in $PWSI
 /// @notice Sellers escrow a territory with an asking price; buyers pay in PWSI.
-///         A protocol fee (default 1%) of every sale is routed to the BuybackBurnTreasury and
-///         burned in the same transaction.
+///         A protocol fee (default 1%) of every sale is routed to the RevenueTreasury and split
+///         (burn / reward pool) in the same transaction. This fee replaces the ERC-2981 royalty on
+///         first-party sales, so trades here are never charged twice.
 contract TerritoryMarketplace is Ownable2Step, ReentrancyGuard, Pausable {
-    using SafeERC20 for IPWSIToken;
+    using SafeERC20 for IERC20;
     using EnumerableSet for EnumerableSet.UintSet;
 
     struct Listing {
@@ -28,12 +29,13 @@ contract TerritoryMarketplace is Ownable2Step, ReentrancyGuard, Pausable {
     uint256 public constant MAX_FEE_BPS = 500; // hard cap 5%
     uint256 public constant MIN_PRICE = 1e15; // 0.001 PWSI
 
-    IPWSIToken public immutable token;
+    uint8 internal constant SOURCE_MARKET_FEE = 4;
+
+    IERC20 public immutable token;
     IERC721 public immutable territory;
-    BuybackBurnTreasury public treasury;
+    IRevenueTreasury public treasury;
 
     uint16 public feeBps;
-    bool public autoBurn = true;
 
     mapping(uint256 tokenId => Listing) private _listings;
     EnumerableSet.UintSet private _active;
@@ -51,7 +53,6 @@ contract TerritoryMarketplace is Ownable2Step, ReentrancyGuard, Pausable {
     );
     event FeeUpdated(uint16 feeBps);
     event TreasuryUpdated(address treasury);
-    event AutoBurnUpdated(bool enabled);
 
     error NotTokenOwner();
     error NotSeller();
@@ -61,13 +62,9 @@ contract TerritoryMarketplace is Ownable2Step, ReentrancyGuard, Pausable {
     error CannotBuyOwn();
     error InvalidConfig();
 
-    constructor(
-        IPWSIToken token_,
-        IERC721 territory_,
-        BuybackBurnTreasury treasury_,
-        address owner_,
-        uint16 feeBps_
-    ) Ownable(owner_) {
+    constructor(IERC20 token_, IERC721 territory_, IRevenueTreasury treasury_, address owner_, uint16 feeBps_)
+        Ownable(owner_)
+    {
         if (address(treasury_) == address(0) || feeBps_ > MAX_FEE_BPS) revert InvalidConfig();
         token = token_;
         territory = territory_;
@@ -126,7 +123,7 @@ contract TerritoryMarketplace is Ownable2Step, ReentrancyGuard, Pausable {
         token.safeTransferFrom(msg.sender, l.seller, proceeds);
         if (fee > 0) {
             token.safeTransferFrom(msg.sender, address(treasury), fee);
-            if (autoBurn) treasury.burnAccrued();
+            treasury.notifyRevenue(SOURCE_MARKET_FEE);
         }
         territory.transferFrom(address(this), msg.sender, tokenId);
     }
@@ -177,15 +174,10 @@ contract TerritoryMarketplace is Ownable2Step, ReentrancyGuard, Pausable {
         emit FeeUpdated(feeBps_);
     }
 
-    function setTreasury(BuybackBurnTreasury treasury_) external onlyOwner {
+    function setTreasury(IRevenueTreasury treasury_) external onlyOwner {
         if (address(treasury_) == address(0)) revert InvalidConfig();
         treasury = treasury_;
         emit TreasuryUpdated(address(treasury_));
-    }
-
-    function setAutoBurn(bool enabled) external onlyOwner {
-        autoBurn = enabled;
-        emit AutoBurnUpdated(enabled);
     }
 
     function pause() external onlyOwner {

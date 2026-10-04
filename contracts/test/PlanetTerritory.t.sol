@@ -35,10 +35,12 @@ contract PlanetTerritoryTest is BaseTest {
         assertEq(territory.ownerOf(id), alice);
         assertTrue(territory.isClaimed(EARTH, plot));
         assertEq(territory.body(EARTH).claimed, 1);
-        // 50% burned, 50% to the resistance fund.
-        assertEq(token.balanceOf(fund), price / 2);
-        assertEq(supplyBefore - token.totalSupply(), price / 2);
-        assertEq(territory.totalPrimaryBurned(), price / 2);
+        // 10% burned, 90% to the reward pool, nothing left in the treasury.
+        assertEq(supplyBefore - token.totalSupply(), _burnPart(price));
+        assertEq(pool.rewardsAvailable(), price - _burnPart(price));
+        assertEq(token.balanceOf(address(treasury)), 0);
+        assertEq(treasury.revenueBySource(0), price);
+        assertEq(territory.totalPrimaryVolume(), price);
     }
 
     function test_ZoneMultipliers() public view {
@@ -177,17 +179,32 @@ contract PlanetTerritoryTest is BaseTest {
         territory.addBody("Moon", 10, 5, 1, true);
     }
 
-    function test_PrimaryConfig() public {
-        territory.setPrimaryConfig(carol, 10_000);
-        uint256 supplyBefore = token.totalSupply();
-        uint256 plot = _firstPlotWithZone(EARTH, PlanetTerritory.Zone.Common);
-        _claimAs(alice, EARTH, plot);
-        assertEq(supplyBefore - token.totalSupply(), 250 ether); // 100% burn
-        assertEq(token.balanceOf(carol), 0);
+    function test_RoyaltyInfoPointsToTreasury() public view {
+        (address receiver, uint256 amount) = territory.royaltyInfo(EARTH * 1_000_000, 1_000 ether);
+        assertEq(receiver, address(treasury));
+        assertEq(amount, 10 ether); // 1%
+        assertTrue(territory.supportsInterface(0x2a55205a)); // ERC-2981
+        assertTrue(territory.supportsInterface(0x80ac58cd)); // ERC-721
+        assertTrue(territory.supportsInterface(0x780e9d63)); // ERC-721 Enumerable
+    }
+
+    function test_RoyaltyBpsCapped() public {
+        territory.setRoyaltyBps(500);
+        (, uint256 amount) = territory.royaltyInfo(1, 100 ether);
+        assertEq(amount, 5 ether);
         vm.expectRevert(PlanetTerritory.InvalidConfig.selector);
-        territory.setPrimaryConfig(address(0), 100);
-        vm.expectRevert(PlanetTerritory.InvalidConfig.selector);
-        territory.setPrimaryConfig(carol, 10_001);
+        territory.setRoyaltyBps(1_001);
+        vm.prank(alice);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, alice));
+        territory.setRoyaltyBps(10);
+    }
+
+    function test_ContractURI() public {
+        assertEq(territory.contractURI(), "https://pwsi.test/api/metadata/contract");
+        vm.expectEmit(address(territory));
+        emit PlanetTerritory.ContractURIUpdated();
+        territory.setContractURI("ipfs://collection");
+        assertEq(territory.contractURI(), "ipfs://collection");
     }
 
     function testFuzz_ClaimAnyValidPlot(uint256 bodySeed, uint256 plotSeed) public {
@@ -195,14 +212,14 @@ contract PlanetTerritoryTest is BaseTest {
         uint256 plot = bound(plotSeed, 0, territory.body(bodyId).supply - 1);
         uint256 price = territory.priceOf(bodyId, plot);
         uint256 supplyBefore = token.totalSupply();
-        uint256 fundBefore = token.balanceOf(fund);
+        uint256 poolBefore = token.balanceOf(address(pool));
 
         uint256 id = _claimAs(alice, bodyId, plot);
         (uint256 b, uint256 p) = territory.decodeTokenId(id);
         assertEq(b, bodyId);
         assertEq(p, plot);
         uint256 burned = supplyBefore - token.totalSupply();
-        assertEq(burned + (token.balanceOf(fund) - fundBefore), price);
-        assertEq(burned, price / 2);
+        assertEq(burned + (token.balanceOf(address(pool)) - poolBefore), price, "split conserves");
+        assertEq(burned, _burnPart(price));
     }
 }
