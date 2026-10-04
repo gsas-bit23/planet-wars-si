@@ -1,0 +1,18 @@
+import type { Metadata } from "next";
+import { PageHeader } from "@/components/ui/page-header";
+import { Marketplace } from "@/components/market/marketplace";
+
+export const metadata: Metadata = { title: "Marketplace", description: "Trade territory plots peer-to-peer in PWSI. 1% of every sale is burned." };
+
+export default function MarketplacePage() {
+  return (
+    <>
+      <PageHeader
+        eyebrow="Territory marketplace · 1% burn on every sale"
+        title={<>Trade the <span className="font-serif font-normal italic text-solar">front line.</span></>}
+        description="List territories you hold, buy plots other players have reclaimed. Sellers escrow their plot in the marketplace contract; a 1% protocol fee is sent to the BuybackBurnTreasury and destroyed in the same transaction."
+      />
+      <Marketplace />
+    </>
+  );
+}

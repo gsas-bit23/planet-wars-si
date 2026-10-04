@@ -1,0 +1,178 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-display: var(--font-syne), ui-sans-serif, system-ui;
+  --font-sans: var(--font-inter-tight), ui-sans-serif, system-ui;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-serif: var(--font-instrument), ui-serif, Georgia;
+
+  --color-void: #04050a;
+  --color-abyss: #070910;
+  --color-hull: #0c0f17;
+  --color-panel: #10141e;
+  --color-line: #1c2230;
+  --color-line-strong: #2a3244;
+  --color-mist: #8a93a6;
+  --color-haze: #b9c0cf;
+  --color-ink: #eef0f4;
+
+  --color-si: #ff3b30;
+  --color-si-deep: #b3160f;
+  --color-ion: #8ff3ff;
+  --color-ion-deep: #1fb8d6;
+  --color-solar: #ffb547;
+  --color-rare: #6f8cff;
+  --color-legend: #ffc24b;
+  --color-ok: #4ade80;
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+
+  --animate-scan: scan 7s linear infinite;
+  --animate-flicker: flicker 4s steps(1) infinite;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-pulse-ring: pulse-ring 2.4s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+  --animate-spin-slow: spin 60s linear infinite;
+  --animate-planet: planet-spin 30s linear infinite;
+
+  @keyframes scan {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+  @keyframes flicker {
+    0%, 100% { opacity: 1; }
+    41% { opacity: 1; }
+    42% { opacity: 0.35; }
+    43% { opacity: 1; }
+    77% { opacity: 0.8; }
+    78% { opacity: 1; }
+  }
+  @keyframes marquee {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.8); opacity: 0.8; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes planet-spin {
+    0% { background-position-x: 0%; }
+    100% { background-position-x: -200%; }
+  }
+}
+
+:root {
+  color-scheme: dark;
+  --header-h: 68px;
+}
+
+html {
+  background: var(--color-void);
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-si) 70%, transparent);
+  color: white;
+}
+
+/* Film grain overlay — subtle, fixed, non-interactive. */
+.grain::after {
+  content: "";
+  position: fixed;
+  inset: -50%;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 1.2s steps(6) infinite;
+}
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-3%, 2%); }
+  40% { transform: translate(2%, -3%); }
+  60% { transform: translate(-2%, -1%); }
+  80% { transform: translate(3%, 3%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* Hairline grid used on section backgrounds. */
+.bg-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in oklab, var(--color-line) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklab, var(--color-line) 55%, transparent) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.text-balance { text-wrap: balance; }
+
+/* Corner-bracket frame used on HUD panels. */
+.hud {
+  position: relative;
+}
+.hud::before,
+.hud::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: color-mix(in oklab, var(--color-ion) 60%, transparent);
+  pointer-events: none;
+}
+.hud::before { top: -1px; left: -1px; border-top: 1px solid; border-left: 1px solid; }
+.hud::after { bottom: -1px; right: -1px; border-bottom: 1px solid; border-right: 1px solid; }
+
+.hud-si::before,
+.hud-si::after {
+  border-color: color-mix(in oklab, var(--color-si) 70%, transparent);
+}
+
+/* CSS planet orb: equirectangular texture scrolled behind a lit sphere mask. */
+.orb {
+  position: relative;
+  border-radius: 9999px;
+  background-size: 200% 100%;
+  background-repeat: repeat-x;
+  animation: var(--animate-planet);
+  box-shadow:
+    inset -18px -10px 40px 6px rgba(0, 0, 0, 0.92),
+    inset 6px 4px 18px -4px rgba(255, 255, 255, 0.28);
+}
+.orb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.12), transparent 45%),
+    radial-gradient(circle at 75% 75%, rgba(0, 0, 0, 0.75), transparent 60%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* RainbowKit modal font alignment */
+[data-rk] {
+  --rk-fonts-body: var(--font-inter-tight), ui-sans-serif, system-ui;
+}
+
+/* Scrollbar */
+* { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
