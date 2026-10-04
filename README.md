@@ -4,6 +4,8 @@
 
 Planet Wars SI is an on-chain territory game built for **Robinhood Chain Testnet**. The eight planets are split into territory NFTs that you claim with the game token **$PWSI**. Players fortify plots, trade them peer-to-peer and defend worlds against the SI's daily attacks. Every token spent in the war is burned.
 
+**Live:** <https://planet-wars-si.vercel.app> (Robinhood Chain Testnet · Vercel · Supabase)
+
 *Working title. Testnet only: PWSI has no monetary value, and territories are in-game items.*
 
 | Landing | Planet detail |
@@ -167,6 +169,8 @@ Deployed on 2026-10-05 from `0x6F9AC937d6621226943FD3bB9a5B7e33EC81a616`. The fi
 
 The NFT metadata base URI is set to `https://planet-wars-si.vercel.app/api/metadata/`. If the app ends up on a different domain, the owner can change it with `PlanetTerritory.setBaseURI`.
 
+The web app runs at **https://planet-wars-si.vercel.app** on Vercel, built from `main`. Production env vars are set in the Vercel project. Off-chain SI state lives in Supabase, with the schema from `supabase/migrations` and RLS enabled. The daily cron calls `/api/si/tick`.
+
 `scripts/smoke-testnet.sh` re-runs the live smoke test: faucet, claim, upgrade, mission, list, and a buy from a throwaway wallet.
 
 **Note on block numbers.** Robinhood Chain is Arbitrum-based, so Solidity's `block.number` returns the L1 block. `npm run contracts:sync` therefore takes the deploy block from the forge broadcast receipts, which carry L2 block numbers.
@@ -209,6 +213,7 @@ With `NEXT_PUBLIC_ENABLE_DEV_WALLET=true` and chain 31337, the connect modal off
 ```bash
 npm run e2e          # connect → faucet → claim plots → upgrade → buy → list → defend
 npm run screenshots  # writes screenshots/*.png
+node e2e/live-shots.mjs  # screenshots of the deployed site (BASE_URL overrides)
 ```
 
 ## Deploying to Robinhood Chain Testnet
