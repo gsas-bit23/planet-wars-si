@@ -34,6 +34,11 @@ const devWallet = (): Wallet => ({
     createConnector((config) => ({
       ...mock({ accounts: [DEV_ACCOUNT], features: { reconnect: true } })(config),
       ...walletDetails,
+      // wagmi's mock connector never reports itself authorized after a reload; restore the
+      // session when it was the most recently used connector.
+      async isAuthorized() {
+        return (await config.storage?.getItem("recentConnectorId")) === "pwsi-dev";
+      },
     })),
 });
 
