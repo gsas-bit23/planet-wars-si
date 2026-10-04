@@ -1,0 +1,52 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+evm_version = "cancun"
+optimizer = true
+optimizer_runs = 500
+via_ir = false
+remappings = [
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "forge-std/=lib/forge-std/src/",
+]
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+
+[fuzz]
+runs = 1024
+
+[invariant]
+runs = 128
+depth = 64
+
+[profile.ci.fuzz]
+runs = 10000
+
+[rpc_endpoints]
+anvil = "http://127.0.0.1:8545"
+robinhood_testnet = "https://rpc.testnet.chain.robinhood.com"
+base_sepolia = "https://sepolia.base.org"
+
+[fmt]
+line_length = 110
+
+[lint]
+# Intentional / reviewed patterns (see README "Security notes"):
+#  - block-timestamp: faucet cooldown is minute-granular, validator skew is irrelevant.
+#  - require-revert-in-loop: batch claims must revert atomically.
+#  - divide-before-multiply: sector maths intentionally floors row/col to 5x5 sectors.
+#  - unsafe-typecast: all casts are range-checked (prices <= uint128, shield <= 1000).
+#  - arbitrary-send-eth / unused-return: router is admin-configured; buyback measures balance delta.
+#  - unsafe-oz-erc721-mint: plots are minted to msg.sender, who initiated the claim.
+#  - uninitialized-local: loop counters default to zero by design.
+exclude_lints = [
+  "block-timestamp",
+  "require-revert-in-loop",
+  "divide-before-multiply",
+  "unsafe-typecast",
+  "arbitrary-send-eth",
+  "unused-return",
+  "unsafe-oz-erc721-mint",
+  "uninitialized-local",
+]
