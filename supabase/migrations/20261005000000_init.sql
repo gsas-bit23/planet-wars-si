@@ -52,3 +52,9 @@ drop policy if exists "si_attacks public read" on public.si_attacks;
 create policy "si_attacks public read" on public.si_attacks for select to anon, authenticated using (true);
 drop policy if exists "si_defenses public read" on public.si_defenses;
 create policy "si_defenses public read" on public.si_defenses for select to anon, authenticated using (true);
+
+-- Explicit Data API grants (newer projects no longer grant public-schema tables automatically).
+grant usage on schema public to anon, authenticated, service_role;
+grant select on public.si_broadcasts, public.si_attacks, public.si_defenses to anon, authenticated;
+grant all on public.si_broadcasts, public.si_attacks, public.si_defenses to service_role;
+grant usage, select on all sequences in schema public to service_role;
