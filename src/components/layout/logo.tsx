@@ -8,7 +8,7 @@ export function Logo() {
         <ellipse cx="16" cy="16" rx="14" ry="5" fill="none" stroke="#ff3b30" strokeWidth="1.4" transform="rotate(-22 16 16)" />
         <circle cx="28.2" cy="11.2" r="1.6" fill="#ff3b30" className="origin-center" />
       </svg>
-      <span className="font-display text-[15px] font-extrabold uppercase tracking-[0.04em]">
+      <span className="font-display text-[15px] font-bold uppercase tracking-[0.04em]">
         Planet Wars <span className="text-si">SI</span>
       </span>
     </Link>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount, useBalance, useReadContracts } from "wagmi";
+import { useAccount, useBalance, useBlock, useReadContracts } from "wagmi";
 import type { Abi } from "viem";
 import { Droplets, ExternalLink, Fuel } from "lucide-react";
 import { addresses, faucetAbi, isDeployed } from "@/lib/contracts";
@@ -18,11 +18,16 @@ export function Faucet() {
   const { data: eth } = useBalance({ address, query: { enabled: !!address } });
   const { data: balance } = usePwsiBalance();
   const { send, pending } = useTx();
-  const [now, setNow] = useState(() => Date.now());
+  const [wall, setWall] = useState(() => Date.now());
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setWall(Date.now()), 1000);
     return () => clearInterval(t);
   }, []);
+  // The cooldown is enforced against block.timestamp, so measure it on chain time (local
+  // chains can drift far from the wall clock after evm_increaseTime / warp).
+  const { data: block, dataUpdatedAt } = useBlock({ query: { refetchInterval: 15_000 } });
+  const skew = block ? Number(block.timestamp) * 1000 - dataUpdatedAt : 0;
+  const now = wall + skew;
 
   const { data } = useReadContracts({
     allowFailure: false,
@@ -62,7 +67,7 @@ export function Faucet() {
             </svg>
             <div>
               <Droplets className="mx-auto size-6 text-ion" strokeWidth={1.4} />
-              <div className="mt-2 font-display text-4xl font-extrabold tabular-nums tracking-tight">{drip !== undefined ? formatPWSI(drip) : "2,500"}</div>
+              <div className="mt-2 font-display text-4xl font-bold tabular-nums tracking-tight">{drip !== undefined ? formatPWSI(drip) : "2,500"}</div>
               <div className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-mist">PWSI per claim</div>
             </div>
           </div>

@@ -109,6 +109,7 @@ body {
   100% { transform: translate(0, 0); }
 }
 
+@layer components {
 /* Hairline grid used on section backgrounds. */
 .bg-grid {
   background-image:
@@ -158,6 +159,7 @@ body {
   border-radius: inherit;
   background: radial-gradient(circle at 32% 30%, rgba(255, 255, 255, 0.12), transparent 45%),
     radial-gradient(circle at 75% 75%, rgba(0, 0, 0, 0.75), transparent 60%);
+}
 }
 
 @media (prefers-reduced-motion: reduce) {

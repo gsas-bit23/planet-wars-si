@@ -100,7 +100,7 @@ export function Portfolio() {
               shield={r.shield}
               footer={
                 <div className="grid grid-cols-2 gap-2">
-                  <Button size="sm" variant="ion" disabled={r.level >= 10 || pending !== null} onClick={() => upgrade(r.id, r.nextCost)} title={`Burns ${formatPWSI(r.nextCost)} PWSI`}>
+                  <Button size="sm" variant="ion" disabled={r.level >= 10 || pending !== null} onClick={() => upgrade(r.id, r.nextCost)} title={`Burns ${formatPWSI(r.nextCost)} PWSI`} aria-label={r.level >= 10 ? "Max level" : `Upgrade to level ${r.level + 1} for ${formatPWSI(r.nextCost)} PWSI`}>
                     <ArrowUpCircle /> {r.level >= 10 ? "Max" : `${formatPWSI(r.nextCost)}`}
                   </Button>
                   <Button size="sm" variant="outline" disabled={r.shield >= 1000 || pending !== null} onClick={() => setShieldFor(r.id)}>

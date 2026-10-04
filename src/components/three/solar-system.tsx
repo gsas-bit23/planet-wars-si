@@ -7,7 +7,7 @@ import { Html, Stars, useTexture } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { useRouter } from "next/navigation";
 import { PLANETS, type PlanetMeta } from "@/lib/planets";
-import { Atmosphere } from "./materials";
+import { Atmosphere, PlanetRing } from "./materials";
 
 function Sun() {
   const tex = useTexture("/textures/sun_1k.webp");
@@ -52,29 +52,6 @@ function OrbitRing({ radius, highlighted }: { radius: number; highlighted: boole
     <lineLoop geometry={geom}>
       <lineBasicMaterial color={highlighted ? "#8ff3ff" : "#3a4458"} transparent opacity={highlighted ? 0.9 : 0.45} />
     </lineLoop>
-  );
-}
-
-function SaturnRing({ size }: { size: number }) {
-  const tex = useTexture("/textures/saturn_ring_alpha.webp");
-  const geom = useMemo(() => {
-    const inner = size * 1.3;
-    const outer = size * 2.3;
-    const g = new THREE.RingGeometry(inner, outer, 128, 1);
-    // Remap UVs radially so the 1D ring strip texture wraps correctly.
-    const pos = g.attributes.position;
-    const uv = g.attributes.uv;
-    const v = new THREE.Vector3();
-    for (let i = 0; i < pos.count; i++) {
-      v.fromBufferAttribute(pos, i);
-      uv.setXY(i, (v.length() - inner) / (outer - inner), 0.5);
-    }
-    return g;
-  }, [size]);
-  return (
-    <mesh geometry={geom} rotation={[-Math.PI / 2, 0, 0]}>
-      <meshStandardMaterial map={tex} alphaMap={tex} transparent side={THREE.DoubleSide} depthWrite={false} color="#e8d9b0" />
-    </mesh>
   );
 }
 
@@ -129,7 +106,7 @@ function Planet({
             <meshStandardMaterial map={tex} roughness={0.95} metalness={0} />
           </mesh>
           {planet.atmosphere && <Atmosphere radius={planet.size} color={planet.atmosphere} intensity={0.9} />}
-          {planet.ring && <SaturnRing size={planet.size} />}
+          {planet.ring && <PlanetRing inner={planet.size * 1.3} outer={planet.size * 2.3} />}
           {/* SI marker */}
           <mesh rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[planet.size * 1.55, 0.008, 6, 64]} />
@@ -172,6 +149,9 @@ function Scene() {
   const router = useRouter();
   const [hovered, setHovered] = useState<string | null>(null);
   const timeScale = useRef(1);
+  const { size } = useThree();
+  // Push the system right on wide screens so the hero copy sits over empty space.
+  const shift = size.width >= 1024 ? 12 : 0;
   useFrame((_, dt) => {
     const want = hovered ? 0.08 : 1;
     timeScale.current += (want - timeScale.current) * Math.min(1, dt * 3);
@@ -183,6 +163,7 @@ function Scene() {
       <fog attach="fog" args={["#04050a", 60, 140]} />
       <ambientLight intensity={0.05} />
       <Stars radius={180} depth={80} count={6000} factor={5} saturation={0} fade speed={0.4} />
+      <group position={[shift, 0, 0]}>
       <Sun />
       {PLANETS.map((p) => (
         <Planet
@@ -194,6 +175,7 @@ function Scene() {
           timeScale={timeScale}
         />
       ))}
+      </group>
       <CameraRig />
       <EffectComposer multisampling={0}>
         <Bloom mipmapBlur intensity={0.9} luminanceThreshold={0.6} luminanceSmoothing={0.3} />

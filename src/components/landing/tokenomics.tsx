@@ -49,7 +49,7 @@ export function Tokenomics() {
           <Panel hud className="p-7 md:p-9">
             <div className="flex flex-col gap-1">
               <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-mist">Total PWSI burned · live from chain</span>
-              <span className="font-display text-6xl font-extrabold tabular-nums tracking-[-0.04em] text-solar md:text-7xl">
+              <span className="font-display text-6xl font-bold tabular-nums tracking-[-0.04em] text-solar md:text-7xl">
                 <Counter value={n(s?.burned)} />
               </span>
             </div>

@@ -131,7 +131,7 @@ export function PlanetCommand({ slug }: { slug: string }) {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-                className="mt-3 font-display text-7xl font-extrabold leading-[0.85] tracking-[-0.05em] md:text-9xl"
+                className="mt-3 font-display text-7xl font-bold leading-[0.85] tracking-[-0.05em] md:text-9xl"
               >
                 {planet.name}
               </motion.h1>
@@ -161,14 +161,14 @@ export function PlanetCommand({ slug }: { slug: string }) {
             </div>
           </div>
           <div className="relative order-1 aspect-square w-full max-w-[640px] justify-self-center lg:order-2">
-            <PlanetView planet={planet} control={control / 100} className="absolute inset-0" />
+            <PlanetView planet={planet} control={control / 100} className="absolute inset-0 [mask-image:radial-gradient(circle_at_center,black_58%,transparent_71%)]" />
             <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 font-mono text-[10px] uppercase tracking-[0.2em] text-mist">Drag to rotate</div>
           </div>
         </div>
       </section>
 
       {/* Command deck */}
-      <section className="mx-auto grid max-w-[1400px] gap-6 px-5 py-10 md:px-8 xl:grid-cols-[1fr_380px]">
+      <section className="mx-auto grid max-w-[1400px] items-start gap-6 px-5 py-10 md:px-8 xl:grid-cols-[1fr_380px]">
         <Panel className="min-w-0">
           <PanelHeader>
             <div className="flex items-center gap-3">

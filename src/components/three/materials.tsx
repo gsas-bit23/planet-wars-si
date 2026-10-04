@@ -3,6 +3,7 @@
 import * as THREE from "three";
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { useTexture } from "@react-three/drei";
 
 /** Fresnel rim glow, rendered on a slightly larger back-faced sphere. */
 export function Atmosphere({ radius, color, intensity = 1.1, power = 3.2 }: { radius: number; color: string; intensity?: number; power?: number }) {
@@ -102,6 +103,27 @@ export function SiLattice({ radius, control = 0.9 }: { radius: number; control?:
     <mesh ref={ref} scale={1.012}>
       <sphereGeometry args={[radius, 96, 64]} />
       <primitive object={material} attach="material" />
+    </mesh>
+  );
+}
+
+/** Saturn-style ring with radially remapped UVs so the 1-D ring strip texture wraps correctly. */
+export function PlanetRing({ inner, outer, rotation = [-Math.PI / 2, 0, 0] }: { inner: number; outer: number; rotation?: [number, number, number] }) {
+  const tex = useTexture("/textures/saturn_ring_alpha.webp");
+  const geom = useMemo(() => {
+    const g = new THREE.RingGeometry(inner, outer, 160, 1);
+    const pos = g.attributes.position;
+    const uv = g.attributes.uv;
+    const v = new THREE.Vector3();
+    for (let i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i);
+      uv.setXY(i, (v.length() - inner) / (outer - inner), 0.5);
+    }
+    return g;
+  }, [inner, outer]);
+  return (
+    <mesh geometry={geom} rotation={rotation}>
+      <meshStandardMaterial map={tex} alphaMap={tex} transparent side={THREE.DoubleSide} depthWrite={false} color="#e8d9b0" />
     </mesh>
   );
 }

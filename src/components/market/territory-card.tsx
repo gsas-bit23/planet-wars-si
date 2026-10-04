@@ -50,9 +50,11 @@ export function TerritoryCard({
       )}
     >
       <Link href={`/planets/${planet.slug}?plot=${plotIndex}`} className="relative flex items-center gap-4 p-4">
-        <PlanetOrb planet={planet} size={52} speed={40} />
+        <div className="grid w-[76px] shrink-0 place-items-center">
+          <PlanetOrb planet={planet} size={planet.ring ? 44 : 52} speed={40} />
+        </div>
         <div className="min-w-0 flex-1">
-          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-mist">{planet.name} · {planet.zones[zone]}</div>
+          <div className="truncate font-mono text-[10px] uppercase tracking-[0.16em] text-mist">{planet.name} · {planet.zones[zone]}</div>
           <div className="mt-0.5 font-display text-xl font-bold tracking-tight">{coord}</div>
         </div>
         <ZoneBadge zone={zone} />

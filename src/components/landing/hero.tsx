@@ -30,8 +30,8 @@ export function Hero() {
       {/* Scanline */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 animate-scan bg-gradient-to-b from-transparent via-si/[0.04] to-transparent" />
 
-      <div className="pointer-events-none relative mx-auto flex h-full max-w-[1400px] flex-col justify-end px-5 pb-36 md:justify-center md:px-8 md:pb-24">
-        <div className="pointer-events-auto max-w-[760px]">
+      <div className="pointer-events-none relative mx-auto flex h-full max-w-[1400px] flex-col justify-end px-5 pb-36 md:justify-center md:px-8 md:pb-20 md:pt-[var(--header-h)]">
+        <div className="pointer-events-auto max-w-[880px]">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -42,7 +42,7 @@ export function Hero() {
             <DecodeText text="Transmission intercepted · SI//Overmind" delay={200} />
           </motion.div>
 
-          <h1 className="font-display text-[clamp(3rem,8.4vw,7.6rem)] font-extrabold leading-[0.86] tracking-[-0.045em]">
+          <h1 className="font-display text-[clamp(2.6rem,5.4vw,5.6rem)] font-bold leading-[0.9] tracking-[-0.04em]">
             <motion.span className="block" initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1, ease, delay: 0.1 }}>
               The solar system
             </motion.span>

@@ -6,12 +6,11 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Stars, useTexture } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import type { PlanetMeta } from "@/lib/planets";
-import { Atmosphere, SiLattice } from "./materials";
+import { Atmosphere, PlanetRing, SiLattice } from "./materials";
 
 function Body({ planet, control }: { planet: PlanetMeta; control: number }) {
   const tex = useTexture(planet.texture);
   const clouds = useTexture(planet.slug === "earth" ? "/textures/earth_clouds_1k.webp" : planet.textureSmall);
-  const ring = useTexture("/textures/saturn_ring_alpha.webp");
   const group = useRef<THREE.Group>(null);
   const cloudRef = useRef<THREE.Mesh>(null);
 
@@ -20,9 +19,9 @@ function Body({ planet, control }: { planet: PlanetMeta; control: number }) {
     if (cloudRef.current) cloudRef.current.rotation.y += dt * 0.012;
   });
 
-  const R = 2;
+  const R = planet.ring ? 1.25 : 2;
   return (
-    <group rotation={[0, 0, planet.tilt * 0.6]}>
+    <group rotation={[0, 0, planet.ring ? 0.35 : planet.tilt * 0.6]}>
       <group ref={group}>
         <mesh>
           <sphereGeometry args={[R, 128, 128]} />
@@ -37,12 +36,7 @@ function Body({ planet, control }: { planet: PlanetMeta; control: number }) {
         <SiLattice radius={R} control={control} />
       </group>
       <Atmosphere radius={R} color={planet.atmosphere ?? planet.glow} intensity={planet.atmosphere ? 1.1 : 0.55} />
-      {planet.ring && (
-        <mesh rotation={[-Math.PI / 2.15, 0, 0]}>
-          <ringGeometry args={[R * 1.3, R * 2.3, 160, 1]} />
-          <meshStandardMaterial map={ring} alphaMap={ring} transparent side={THREE.DoubleSide} color="#e8d9b0" depthWrite={false} />
-        </mesh>
-      )}
+      {planet.ring && <PlanetRing inner={R * 1.25} outer={R * 2.25} rotation={[-Math.PI / 2 + 0.32, 0, 0]} />}
     </group>
   );
 }
@@ -50,7 +44,7 @@ function Body({ planet, control }: { planet: PlanetMeta; control: number }) {
 export default function PlanetView({ planet, control, className }: { planet: PlanetMeta; control: number; className?: string }) {
   return (
     <div className={className}>
-      <Canvas dpr={[1, 1.75]} camera={{ position: [0, 0.6, 6.4], fov: 40 }} gl={{ antialias: true }}>
+      <Canvas dpr={[1, 1.75]} camera={{ position: [0, 0.5, 7.4], fov: 40 }} gl={{ antialias: true }}>
         <Suspense fallback={null}>
           <color attach="background" args={["#04050a"]} />
           <ambientLight intensity={0.06} />

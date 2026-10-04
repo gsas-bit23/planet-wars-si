@@ -9,6 +9,7 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  devIndicators: false,
   serverExternalPackages: ["pino", "thread-stream"],
   async headers() {
     return [

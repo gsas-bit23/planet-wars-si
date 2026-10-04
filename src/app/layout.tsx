@@ -6,7 +6,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { NetworkBanner } from "@/components/layout/network-banner";
 import "./globals.css";
 
-const syne = Syne({ subsets: ["latin"], variable: "--font-syne", weight: ["600", "700", "800"] });
+const syne = Syne({ subsets: ["latin"], variable: "--font-syne", weight: ["600", "700"] });
 const inter = Inter_Tight({ subsets: ["latin"], variable: "--font-inter-tight" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains", weight: ["400", "500"] });
 const serif = Instrument_Serif({ subsets: ["latin"], variable: "--font-instrument", weight: "400", style: ["normal", "italic"] });

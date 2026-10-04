@@ -54,7 +54,7 @@ export function BurnDashboard() {
           <div className="pointer-events-none absolute -left-20 -top-32 size-96 rounded-full bg-solar/10 blur-3xl" />
           <div className="relative p-7 md:p-9">
             <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.18em] text-mist"><Flame className="size-4 text-solar" /> Total PWSI burned</span>
-            <div className="mt-3 font-display text-7xl font-extrabold tabular-nums tracking-[-0.045em] text-solar md:text-8xl" data-testid="total-burned">
+            <div className="mt-3 font-display text-7xl font-bold tabular-nums tracking-[-0.045em] text-solar md:text-8xl" data-testid="total-burned">
               <Counter value={n(s?.burned)} />
             </div>
             <div className="mt-2 font-mono text-sm text-mist">{pctSupply.toFixed(2)}% of all PWSI ever minted</div>
