@@ -50,3 +50,5 @@ next-env.d.ts
 # playwright
 /test-results/
 /playwright-report/
+/contracts/broadcast/**/run-[0-9]*.json
+/contracts/broadcast/**/*.lock
