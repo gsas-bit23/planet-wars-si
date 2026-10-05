@@ -60,7 +60,12 @@ const connectors = connectorsForWallets(groups, {
 export const wagmiConfig = createConfig({
   chains: [targetChain],
   connectors,
-  transports: { [targetChain.id]: http() },
+  // The public Robinhood RPC rate-limits bursts (429 without CORS headers), so coalesce reads:
+  // JSON-RPC batching + Multicall3 aggregation, with backoff retries.
+  transports: {
+    [targetChain.id]: http(undefined, { batch: { batchSize: 40, wait: 20 }, retryCount: 5, retryDelay: 400 }),
+  },
+  batch: { multicall: { wait: 20 } },
   ssr: true,
 });
 

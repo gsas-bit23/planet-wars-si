@@ -32,6 +32,8 @@ const CHAINS = {
       nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
       rpcUrls: { default: { http: [env("NEXT_PUBLIC_ROBINHOOD_MAINNET_RPC_URL") || "https://rpc.mainnet.chain.robinhood.com"] } },
       blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } },
+      // Multicall3 (canonical address, verified to have code on 4663): lets reads be aggregated.
+      contracts: { multicall3: { address: "0xcA11bde05977b3631167028862bE2a173976CA11" } },
     },
     testnet: false,
     gasFaucets: [],
