@@ -52,3 +52,4 @@ next-env.d.ts
 /playwright-report/
 /contracts/broadcast/**/run-[0-9]*.json
 /contracts/broadcast/**/*.lock
+contracts/deployments/dryrun-*.json

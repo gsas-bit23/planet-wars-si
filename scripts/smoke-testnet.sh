@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Live smoke test against a deployed suite. Requires DEPLOYER_PRIVATE_KEY in env (never printed).
+# Live smoke test against a deployed suite. Requires DEPLOYER_PRIVATE_KEY and OPERATOR_PRIVATE_KEY in
+# env (never printed). Both are protocol wallets, excluded from leaderboard/lottery/airdrop.
 # Usage: scripts/smoke-testnet.sh [deployments/<chainId>.json] [rpc]
 set -euo pipefail
 set +x
 DEP=${1:-contracts/deployments/46630.json}
 RPC=${2:-https://rpc.testnet.chain.robinhood.com}
 j() { node -e "console.log(require('./$DEP')['$1'])"; }
-TOKEN=$(j token); FAUCET=$(j faucet); TREAS=$(j treasury); TERR=$(j territory); MKT=$(j marketplace); OPS=$(j ops)
+TOKEN=$(j token); FAUCET=$(j faucet); TREAS=$(j treasury); TERR=$(j territory); MKT=$(j marketplace); OPS=$(j ops); POOL=$(j rewardPool); DRAW=$(j dailyDraw)
 PK="$DEPLOYER_PRIVATE_KEY"; ME=$(cast wallet address --private-key "$PK")
 send() { local key=$1; shift; cast send --rpc-url "$RPC" --private-key "$key" "$@" --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);console.log("   tx",r.transactionHash,"status",parseInt(r.status),"gas",parseInt(r.gasUsed))})'; }
 call() { cast call --rpc-url "$RPC" "$@"; }
@@ -34,7 +35,7 @@ send "$PK" $TERR 'claim(uint256,uint256)' $BODY $PLOT_A
 send "$PK" $TERR 'claim(uint256,uint256)' $BODY $PLOT_B
 echo " ownerOf($ID_A): $(call $TERR 'ownerOf(uint256)(address)' $ID_A)"
 
-echo "== upgrade $ID_B + recon mission on Mars (sinks, 100% burned)"
+echo "== upgrade $ID_B + recon mission on Mars (sinks: 10% burned, 90% pooled)"
 send "$PK" $TOKEN 'approve(address,uint256)' $OPS 75000000000000000000
 send "$PK" $OPS 'upgrade(uint256)' $ID_B
 send "$PK" $OPS 'launchMission(uint256,uint8)' 4 0
@@ -44,26 +45,25 @@ send "$PK" $TERR 'approve(address,uint256)' $MKT $ID_A
 send "$PK" $MKT 'list(uint256,uint256)' $ID_A 100000000000000000000
 
 fi
-echo "== buy from a fresh throwaway buyer"
-BUYER_PK=$(cast wallet new --json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s);const d=Array.isArray(r)?r:(Array.isArray(r.data)?r.data:[r.data]);console.log(d[0].private_key)})')
+echo "== buy with the operator wallet (protocol wallet, excluded from rewards)"
+BUYER_PK="$OPERATOR_PRIVATE_KEY"
 BUYER=$(cast wallet address --private-key "$BUYER_PK")
 echo " buyer: $BUYER"
-send "$PK" $BUYER --value 0.0003ether
-send "$BUYER_PK" $FAUCET 'claim()'
+send "$BUYER_PK" $FAUCET 'claim()' || echo " (faucet cooldown)"
 send "$BUYER_PK" $TOKEN 'approve(address,uint256)' $MKT 100000000000000000000
 send "$BUYER_PK" $MKT 'buy(uint256,uint256)' $ID_A 100000000000000000000
 echo " ownerOf($ID_A): $(call $TERR 'ownerOf(uint256)(address)' $ID_A)"
-# return leftover gas ETH to the deployer
-LEFT=$(cast balance --rpc-url "$RPC" $BUYER); GP=$(cast gas-price --rpc-url "$RPC")
-RET=$(node -e "const v=BigInt('$LEFT')-BigInt('$GP')*3n*200000n; console.log(v>0n?v.toString():'0')")
-[ "$RET" != "0" ] && send "$BUYER_PK" $ME --value $RET --gas-limit 200000 || echo " (refund skipped)"
 unset BUYER_PK
 
 echo "== totals"
-echo " token.totalBurned: $(e "$(call $TOKEN 'totalBurned()(uint256)')")"
-echo " token.totalSupply: $(e "$(call $TOKEN 'totalSupply()(uint256)')")"
-echo " treasury.totalFeesBurned: $(e "$(call $TREAS 'totalFeesBurned()(uint256)')")"
-echo " treasury PWSI balance: $(e "$(call $TOKEN 'balanceOf(address)(uint256)' $TREAS)")"
-echo " ops.totalSinkBurned: $(e "$(call $OPS 'totalSinkBurned()(uint256)')")"
+echo " treasury.totalRevenue: $(e "$(call $TREAS 'totalRevenue()(uint256)')")"
+echo " treasury.totalBurned:  $(e "$(call $TREAS 'totalBurned()(uint256)')") (token.totalBurned: $(e "$(call $TOKEN 'totalBurned()(uint256)')"))"
+echo " treasury.totalPooled:  $(e "$(call $TREAS 'totalPooled()(uint256)')")"
+echo " treasury PWSI balance: $(e "$(call $TOKEN 'balanceOf(address)(uint256)' $TREAS)") (always 0)"
+echo " pool rewardsAvailable: $(e "$(call $POOL 'rewardsAvailable()(uint256)')") · airdropAvailable: $(e "$(call $POOL 'airdropAvailable()(uint256)')") · epochCap: $(e "$(call $POOL 'epochCap()(uint256)')")"
+echo " ops.totalSinkRevenue: $(e "$(call $OPS 'totalSinkRevenue()(uint256)')")"
+echo " royaltyInfo(1, 10000): $(call $TERR 'royaltyInfo(uint256,uint256)(address,uint256)' 1 10000 | tr '\n' ' ')"
+echo " draw.useArbSys: $(call $DRAW 'useArbSys()(bool)')"
 echo " market totalVolume/tradeCount: $(e "$(call $MKT 'totalVolume()(uint256)')") / $(call $MKT 'tradeCount()(uint256)')"
 echo " deployer ETH: $(cast balance --ether --rpc-url "$RPC" $ME)"
+echo " operator ETH: $(cast balance --ether --rpc-url "$RPC" $(cast wallet address --private-key "$OPERATOR_PRIVATE_KEY"))"

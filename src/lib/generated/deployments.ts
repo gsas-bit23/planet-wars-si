@@ -5,9 +5,14 @@ import type { Address } from "viem";
 export type Deployment = {
   chainId: number;
   deployBlock: number;
+  operator: Address;
+  deployer: Address;
   token: Address;
-  faucet: Address;
+  /** null when the chain has no faucet (mainnet: token launched externally). */
+  faucet: Address | null;
   treasury: Address;
+  rewardPool: Address;
+  dailyDraw: Address;
   territory: Address;
   marketplace: Address;
   ops: Address;
@@ -16,22 +21,30 @@ export type Deployment = {
 export const deployments: Record<number, Deployment> = {
   "31337": {
     "chainId": 31337,
-    "deployBlock": 6,
-    "token": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-    "faucet": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
-    "treasury": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-    "territory": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-    "marketplace": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
-    "ops": "0x0165878A594ca255338adfa4d48449f69242Eb8F"
+    "deployBlock": 16071,
+    "operator": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+    "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "token": "0xdbC43Ba45381e02825b14322cDdd15eC4B3164E6",
+    "faucet": "0x04C89607413713Ec9775E14b954286519d836FEf",
+    "treasury": "0x2E2Ed0Cfd3AD2f1d34481277b3204d807Ca2F8c2",
+    "rewardPool": "0x21dF544947ba3E8b3c32561399E88B52Dc8b2823",
+    "dailyDraw": "0x36b58F5C1969B7b6591D752ea6F5486D069010AB",
+    "territory": "0xD8a5a9b31c3C0232E196d518E89Fd8bF83AcAd43",
+    "marketplace": "0xDC11f7E700A4c898AE5CAddB1082cFfa76512aDD",
+    "ops": "0x51A1ceB83B83F1985a81C295d1fF28Afef186E02"
   },
   "46630": {
     "chainId": 46630,
-    "deployBlock": 128923025,
-    "token": "0xd3B16975DEAdae0792C05482228f6764CFD6Ac08",
-    "faucet": "0xf6f03a7796A3A9d9a97c817Cfeb74E3759f65c51",
-    "treasury": "0x74989BF4e70f4886EeeaeD0a1d52cB698248b498",
-    "territory": "0xA10Fdd2EFc21B4AbA2E30013A76EeAa1bE067639",
-    "marketplace": "0x75f9e415Eb337C27E2fC554EfF751832F67c621B",
-    "ops": "0xc154115B0E1e6851A5f5aCce366f890fDaB19046"
+    "deployBlock": 128943055,
+    "operator": "0x8cfDeb78ac72179245603b09b63cB71e4dB07094",
+    "deployer": "0x6F9AC937d6621226943FD3bB9a5B7e33EC81a616",
+    "token": "0x80573fDA543d361C451e0f85b175f0AeA757d5ff",
+    "faucet": "0xBEcd392f6a303C29637Cc1b081A7F2F5B2483a1e",
+    "treasury": "0x7C4083a83e8226A1149377b3Bd6499788257dA6b",
+    "rewardPool": "0x2490c8eee6d32864FE55275512E6cC5abF1A39F7",
+    "dailyDraw": "0xe29B76FbC21D834968BA724AC26f20D2EC5312A5",
+    "territory": "0x60E586dBb1618cB3b96c800B39f8Ddb5E1e77554",
+    "marketplace": "0x9F27149781327d391E30B902e5F015665d5559e6",
+    "ops": "0x681FB69C99351F8C224092fc2B2D618429D12529"
   }
 };
