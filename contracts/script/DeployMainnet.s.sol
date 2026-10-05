@@ -29,6 +29,11 @@ contract DeployMainnet is DeployWriter {
         address token = vm.envAddress("TOKEN_ADDRESS");
         require(token.code.length > 0, "TOKEN_ADDRESS has no code on this chain");
         IERC20(token).totalSupply(); // sanity: must look like an ERC-20
+        // Game prices (GameConfig) and the UI assume 18 decimals (pons tokens are 18).
+        (bool okDec, bytes memory dec) = token.staticcall(abi.encodeWithSignature("decimals()"));
+        require(
+            okDec && dec.length == 32 && abi.decode(dec, (uint8)) == 18, "TOKEN_ADDRESS must have 18 decimals"
+        );
 
         string memory mode = vm.envOr("BURN_MODE", string("dead"));
         bool useBurn = keccak256(bytes(mode)) == keccak256("burn");

@@ -50,6 +50,8 @@ const CHAINS: Record<number, Chain> = {
 
 export const TARGET_CHAIN_ID = Number(process.env.NEXT_PUBLIC_CHAIN_ID || robinhoodChainTestnet.id);
 export const targetChain: Chain = CHAINS[TARGET_CHAIN_ID] ?? robinhoodChainTestnet;
+/** Production network with real value. Going live = NEXT_PUBLIC_CHAIN_ID=4663 + redeploy. */
+export const IS_MAINNET = targetChain.id === robinhoodChainMainnet.id;
 
 export const GAS_FAUCETS: Record<number, { label: string; url: string }[]> = {
   46630: [

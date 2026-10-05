@@ -1,5 +1,6 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { assertStoreChain } from "../store/chain-guard";
 import { hasSupabase, serverEnv } from "../env";
 
 export type EpochRecord = {
@@ -116,6 +117,12 @@ const db = () =>
     auth: { persistSession: false, autoRefreshToken: false },
   }));
 
+async function cdb() {
+  const c = db();
+  await assertStoreChain(c);
+  return c;
+}
+
 type Row = Record<string, unknown>;
 const toEpoch = (r: Row): EpochRecord => ({
   epochId: String(r.epoch_id),
@@ -161,17 +168,17 @@ function check<T>(res: { data: T; error: unknown }): T {
 const supabaseStore: RewardsStore = {
   kind: "supabase",
   async getEpoch(id) {
-    const rows = check(await db().from("reward_epochs").select("*").eq("epoch_id", id).limit(1));
+    const rows = check(await (await cdb()).from("reward_epochs").select("*").eq("epoch_id", id).limit(1));
     return rows?.[0] ? toEpoch(rows[0]) : null;
   },
   async listEpochs(kind, limit = 60) {
-    let q = db().from("reward_epochs").select("*").order("epoch_id", { ascending: false }).limit(limit);
+    let q = (await cdb()).from("reward_epochs").select("*").order("epoch_id", { ascending: false }).limit(limit);
     if (kind) q = q.eq("kind", kind);
     return (check(await q) ?? []).map(toEpoch);
   },
   async saveEpoch(e, allocations) {
     check(
-      await db().from("reward_epochs").upsert({
+      await (await cdb()).from("reward_epochs").upsert({
         epoch_id: e.epochId,
         kind: e.kind,
         day: e.day,
@@ -186,10 +193,10 @@ const supabaseStore: RewardsStore = {
         published_at: e.publishedAt,
       }),
     );
-    check(await db().from("reward_allocations").delete().eq("epoch_id", e.epochId));
+    check(await (await cdb()).from("reward_allocations").delete().eq("epoch_id", e.epochId));
     for (let i = 0; i < allocations.length; i += 500) {
       check(
-        await db()
+        await (await cdb())
           .from("reward_allocations")
           .insert(
             allocations.slice(i, i + 500).map((a) => ({
@@ -207,31 +214,31 @@ const supabaseStore: RewardsStore = {
   },
   async markEpochPublished(id, txHash) {
     check(
-      await db()
+      await (await cdb())
         .from("reward_epochs")
         .update({ status: "published", ...(txHash ? { tx_hash: txHash } : {}), published_at: new Date().toISOString() })
         .eq("epoch_id", id),
     );
   },
   async allocationsFor(account) {
-    const rows = check(await db().from("reward_allocations").select("*").eq("account", account.toLowerCase()).limit(1000));
+    const rows = check(await (await cdb()).from("reward_allocations").select("*").eq("account", account.toLowerCase()).limit(1000));
     return (rows ?? []).map(toAlloc);
   },
   async allocationsOf(epochId) {
-    const rows = check(await db().from("reward_allocations").select("*").eq("epoch_id", epochId).limit(10000));
+    const rows = check(await (await cdb()).from("reward_allocations").select("*").eq("epoch_id", epochId).limit(10000));
     return (rows ?? []).map(toAlloc);
   },
   async saveScores(day, rows) {
-    check(await db().from("leaderboard_scores").delete().eq("day", day));
+    check(await (await cdb()).from("leaderboard_scores").delete().eq("day", day));
     if (rows.length)
       check(
-        await db()
+        await (await cdb())
           .from("leaderboard_scores")
           .insert(rows.map((r) => ({ day, account: r.account, rank: r.rank, score: r.score, breakdown: r.breakdown }))),
       );
   },
   async getScores(day) {
-    const rows = check(await db().from("leaderboard_scores").select("*").eq("day", day).order("rank").limit(100));
+    const rows = check(await (await cdb()).from("leaderboard_scores").select("*").eq("day", day).order("rank").limit(100));
     return (rows ?? []).map((r: Row) => ({
       day: r.day as string,
       account: r.account as string,
@@ -241,16 +248,16 @@ const supabaseStore: RewardsStore = {
     }));
   },
   async getRound(round) {
-    const rows = check(await db().from("lottery_rounds").select("*").eq("round", round).limit(1));
+    const rows = check(await (await cdb()).from("lottery_rounds").select("*").eq("round", round).limit(1));
     return rows?.[0] ? toRound(rows[0]) : null;
   },
   async listRounds(limit = 30) {
-    const rows = check(await db().from("lottery_rounds").select("*").order("round", { ascending: false }).limit(limit));
+    const rows = check(await (await cdb()).from("lottery_rounds").select("*").order("round", { ascending: false }).limit(limit));
     return (rows ?? []).map(toRound);
   },
   async saveRound(r) {
     check(
-      await db().from("lottery_rounds").upsert({
+      await (await cdb()).from("lottery_rounds").upsert({
         round: r.round,
         day: r.day,
         status: r.status,

@@ -256,6 +256,13 @@ async function publishDay(day: number, snap: Snapshot, log: Log) {
   const prior = await rewardsStore.getEpoch(epochId.toString());
   if (prior?.status === "empty") return;
 
+  // RewardPool only accepts strictly increasing days (and, from v3, at most MAX_PUBLISH_LAG_DAYS old).
+  const last = (await publicClient.readContract({ address: addresses!.rewardPool, abi: rewardPoolAbi, functionName: "lastRewardsEpoch" })) as bigint;
+  if (epochId <= last) {
+    log.push(`epoch ${dayLabel(day)}: skipped (a later day ${last} is already published; its pot stays in the pool)`);
+    return;
+  }
+
   const round = await resolveRound(day, snap, log);
   const rows = await leaderboardFor(day, snap);
   await rewardsStore.saveScores(

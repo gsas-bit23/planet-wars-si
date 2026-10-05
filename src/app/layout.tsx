@@ -1,3 +1,4 @@
+import { targetChain } from "@/lib/chains";
 import type { Metadata, Viewport } from "next";
 import { Syne, Inter_Tight, JetBrains_Mono, Instrument_Serif } from "next/font/google";
 import { Providers } from "@/components/providers";
@@ -15,7 +16,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: { default: "Planet Wars SI — Take back the solar system", template: "%s · Planet Wars SI" },
   description:
-    "A rogue superintelligence has taken over the solar system. Claim territory plots on all eight planets, fortify them, trade them and defend them — on Robinhood Chain testnet.",
+    `A rogue superintelligence has taken over the solar system. Claim territory plots on all eight planets, fortify them, trade them and defend them — on ${targetChain.name}.`,
   openGraph: {
     title: "Planet Wars SI",
     description: "A rogue superintelligence owns the solar system. Take it back, one plot at a time.",

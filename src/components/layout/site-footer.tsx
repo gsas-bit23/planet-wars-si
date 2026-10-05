@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Logo } from "./logo";
 import { NAV } from "@/lib/nav";
 import { addresses } from "@/lib/contracts";
-import { explorerAddress, targetChain } from "@/lib/chains";
+import { IS_MAINNET, explorerAddress, targetChain } from "@/lib/chains";
 import { shortAddress } from "@/lib/utils";
 
 const CONTRACTS = [
@@ -24,8 +24,10 @@ export function SiteFooter() {
           <Logo />
           <p className="max-w-sm text-sm leading-relaxed text-mist">
             A rogue superintelligence runs the solar system. Claim it back, one plot at a time. A game on{" "}
-            {targetChain.name}. Testnet tokens have no monetary value — territories are in-game items, not financial
-            products.
+            {targetChain.name}.{" "}
+            {IS_MAINNET
+              ? "PWSI is a game token and territories are in-game items — not financial products. Rewards come only from game revenue in the pool and are never guaranteed."
+              : "Testnet tokens have no monetary value — territories are in-game items, not financial products."}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">

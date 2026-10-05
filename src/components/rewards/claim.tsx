@@ -6,6 +6,7 @@ import { useAccount, useReadContracts } from "wagmi";
 import type { Abi } from "viem";
 import { Gift, Trophy } from "lucide-react";
 import { addresses, rewardPoolAbi } from "@/lib/contracts";
+import { IS_MAINNET } from "@/lib/chains";
 import { useTx } from "@/lib/hooks/use-tx";
 import { formatPWSI } from "@/lib/format";
 import { Panel, PanelHeader } from "@/components/ui/panel";
@@ -188,7 +189,7 @@ function AirdropTab({ account }: { account: `0x${string}` }) {
           {data?.preview && (
             <p className="text-xs text-mist">Your activity: {data.preview.activeDays} active day(s){data.preview.claimedPlot ? " · claimed a plot" : ""}{data.preview.faucet ? " · faucet user" : ""}.</p>
           )}
-          <p className="text-xs text-mist">Protocol wallets are excluded. If total eligibility exceeds the allocation, everyone is scaled down pro-rata. Unclaimed airdrop returns to the airdrop allocation after 30 days. Testnet tokens have no value.</p>
+          <p className="text-xs text-mist">Protocol wallets are excluded. If total eligibility exceeds the allocation, everyone is scaled down pro-rata. Unclaimed airdrop returns to the airdrop allocation after 30 days.{IS_MAINNET ? " Eligibility rules can change before a snapshot is published." : " Testnet tokens have no value."}</p>
         </div>
       </Panel>
     </div>
