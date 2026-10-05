@@ -4,6 +4,10 @@ import { formatUnits } from "viem";
 import { Counter } from "@/components/ui/counter";
 import { useProtocolStats } from "@/lib/hooks/use-game";
 import { useSiFeed } from "@/lib/hooks/use-si-feed";
+import { PLANETS } from "@/lib/planets";
+import { PRE_LAUNCH } from "@/components/launch/prelaunch";
+
+const TOTAL_PLOTS = PLANETS.reduce((a, p) => a + p.supply, 0);
 
 const n = (v?: bigint) => (v === undefined ? 0 : Number(formatUnits(v, 18)));
 
@@ -13,7 +17,16 @@ export function LiveStatsBar() {
   const active = feed?.attacks.filter((a) => a.status === "active").length ?? 0;
   const avg = feed ? feed.control.reduce((a, c) => a + c.control, 0) / feed.control.length : 0;
 
-  const items = [
+  const items = PRE_LAUNCH
+    ? [
+        { label: "Status", value: <span className="text-[0.8em]">Launching soon</span>, accent: "text-solar" },
+        { label: "Worlds", value: <Counter value={PLANETS.length} /> },
+        { label: "Plots to reclaim", value: <Counter value={TOTAL_PLOTS} /> },
+        { label: "Revenue split", value: <span>10 / 90</span>, accent: "text-ion" },
+        { label: "SI control", value: <><Counter value={avg} decimals={1} />%</>, accent: "text-si" },
+        { label: "Active attacks", value: <Counter value={active} />, accent: active ? "text-si" : undefined },
+      ]
+    : [
     { label: "PWSI burned", value: <Counter value={n(s?.burned)} />, accent: "text-solar" },
     { label: "Reward pool", value: <Counter value={n(s?.rewardsAvailable)} />, accent: "text-ion" },
     { label: "Plots reclaimed", value: <Counter value={Number(s?.territoriesClaimed ?? 0n)} /> },

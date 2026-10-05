@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { WalletButton } from "@/components/layout/connect-button";
+import { FollowOnX, PRE_LAUNCH } from "@/components/launch/prelaunch";
 import { cn } from "@/lib/utils";
 
 const PlanetView = dynamic(() => import("@/components/three/planet-view"), {
@@ -41,7 +42,11 @@ export function PlanetCommand({ slug }: { slug: string }) {
   const supply = body ? Number(body.supply) : planet.supply;
   const cols = body ? Number(body.cols) : planet.cols;
   const basePrice = body ? body.basePrice : parseUnits(String(planet.basePrice), 18);
-  const zones = useZones(planet.bodyId, supply, cols);
+  const liveZones = useZones(planet.bodyId, supply, cols);
+  // Zones derive from the deployed contract's salt, so they are unknown before launch: show a
+  // uniform grid rather than a misleading preview.
+  const preZones = useMemo(() => (PRE_LAUNCH ? new Array(supply).fill(0) : null), [supply]);
+  const zones = PRE_LAUNCH ? preZones : liveZones;
   const { data: bitmap, isLoading: bitmapLoading } = useClaimedBitmap(planet.bodyId);
   const claimed = useMemo(() => decodeBitmap(bitmap as bigint[] | undefined, supply), [bitmap, supply]);
   const { data: myIds } = useMyTerritories();
@@ -74,7 +79,7 @@ export function PlanetCommand({ slug }: { slug: string }) {
   const claimedCount = body ? Number(body.claimed) : claimed.reduce((a, b) => a + b, 0);
 
   const toggle = (i: number) => {
-    if (claimed[i]) return;
+    if (PRE_LAUNCH || claimed[i]) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(i)) next.delete(i);
@@ -175,6 +180,7 @@ export function PlanetCommand({ slug }: { slug: string }) {
             <div className="flex items-center gap-3">
               <Crosshair className="size-4 text-ion" />
               <h2 className="font-display text-lg font-bold tracking-tight">Territory grid</h2>
+              {PRE_LAUNCH && <Badge tone="legend">Zones revealed at launch</Badge>}
             </div>
             <div className="flex flex-wrap items-center gap-3 font-mono text-[10.5px] uppercase tracking-[0.12em] text-mist">
               {ZONE_LABELS.map((z, i) => (
@@ -188,7 +194,7 @@ export function PlanetCommand({ slug }: { slug: string }) {
             </div>
           </PanelHeader>
           <div className="p-5">
-            {!zones || bitmapLoading ? (
+            {!zones || (!PRE_LAUNCH && bitmapLoading) ? (
               <Skeleton className="aspect-[2/1] w-full" />
             ) : (
               <TerritoryGrid
@@ -237,7 +243,11 @@ export function PlanetCommand({ slug }: { slug: string }) {
               <span className="font-mono text-xs text-mist">{selected.size}/{MAX_SELECT}</span>
             </PanelHeader>
             <div className="flex flex-col gap-4 p-5">
-              {selected.size === 0 ? (
+              {PRE_LAUNCH ? (
+                <p className="text-sm leading-relaxed text-mist" data-testid="claim-prelaunch">
+                  All {supply.toLocaleString("en-US")} plots on {planet.name} are still held by the SI. Claiming opens at launch, right after the PWSI token goes live on pons. Common plots start at {planet.basePrice} PWSI; rare sectors cost ×2.5 and legendary sectors ×10.
+                </p>
+              ) : selected.size === 0 ? (
                 <p className="text-sm text-mist">Select open plots on the grid. Legendary sectors glow gold, rare sectors blue.</p>
               ) : (
                 <ul className="flex max-h-56 flex-col gap-1.5 overflow-auto pr-1" data-testid="claim-list">
@@ -257,12 +267,19 @@ export function PlanetCommand({ slug }: { slug: string }) {
                   ))}
                 </ul>
               )}
-              <div className="grid gap-2 border-t border-line pt-4 font-mono text-xs">
-                <div className="flex justify-between"><span className="text-mist">Total</span><span className="text-ink">{formatPWSI(total)} PWSI</span></div>
-                <div className="flex justify-between"><span className="text-mist">Burned (10%) · to rewards (90%)</span><span className="text-solar">{formatPWSI(total / 10n)} · <span className="text-ion">{formatPWSI(total - total / 10n)}</span></span></div>
-                <div className="flex justify-between"><span className="text-mist">Your balance</span><span className={cn(balance !== undefined && balance < total ? "text-si" : "text-haze")}>{formatPWSI(balance)} PWSI</span></div>
-              </div>
-              {!isConnected ? (
+              {!PRE_LAUNCH && (
+                <div className="grid gap-2 border-t border-line pt-4 font-mono text-xs">
+                  <div className="flex justify-between"><span className="text-mist">Total</span><span className="text-ink">{formatPWSI(total)} PWSI</span></div>
+                  <div className="flex justify-between"><span className="text-mist">Burned (10%) · to rewards (90%)</span><span className="text-solar">{formatPWSI(total / 10n)} · <span className="text-ion">{formatPWSI(total - total / 10n)}</span></span></div>
+                  <div className="flex justify-between"><span className="text-mist">Your balance</span><span className={cn(balance !== undefined && balance < total ? "text-si" : "text-haze")}>{formatPWSI(balance)} PWSI</span></div>
+                </div>
+              )}
+              {PRE_LAUNCH ? (
+                <div className="flex flex-col gap-2">
+                  <Button size="lg" disabled data-testid="claim-button">Claiming opens at launch</Button>
+                  <FollowOnX size="sm" className="justify-center" />
+                </div>
+              ) : !isConnected ? (
                 <WalletButton />
               ) : (
                 <Button
@@ -284,7 +301,7 @@ export function PlanetCommand({ slug }: { slug: string }) {
           <Panel>
             <PanelHeader>
               <div className="flex items-center gap-2"><Rocket className="size-4 text-solar" /><h3 className="font-display text-lg font-bold tracking-tight">Missions</h3></div>
-              <Badge tone="neutral">10% burn · 90% rewards</Badge>
+              <Badge tone={PRE_LAUNCH ? "legend" : "neutral"}>{PRE_LAUNCH ? "Opens at launch" : "10% burn · 90% rewards"}</Badge>
             </PanelHeader>
             <div className="flex flex-col gap-2 p-4">
               {MISSIONS.map((m) => (

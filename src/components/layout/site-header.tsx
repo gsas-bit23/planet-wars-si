@@ -10,6 +10,8 @@ import { WalletButton } from "./connect-button";
 import { cn } from "@/lib/utils";
 import { targetChain } from "@/lib/chains";
 import { NAV } from "@/lib/nav";
+import { XIcon, XIconLink } from "@/components/ui/x-icon";
+import { X_HANDLE, X_URL } from "@/lib/site";
 
 
 export function SiteHeader() {
@@ -71,6 +73,7 @@ export function SiteHeader() {
             <span className="size-1.5 rounded-full bg-ok shadow-[0_0_8px_#4ade80]" />
             {targetChain.name}
           </span>
+          <XIconLink className="hidden sm:grid" />
           <WalletButton />
           <button
             className="grid size-9 place-items-center rounded-sm border border-line-strong text-haze xl:hidden"
@@ -100,6 +103,14 @@ export function SiteHeader() {
                   {item.label}
                 </Link>
               ))}
+              <a
+                href={X_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-3 py-3 font-mono text-xs uppercase tracking-[0.16em] text-haze hover:text-ink"
+              >
+                <XIcon className="size-4" /> Follow {X_HANDLE}
+              </a>
             </div>
           </motion.nav>
         )}

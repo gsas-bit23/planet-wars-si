@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DecodeText } from "@/components/ui/decode-text";
 import { useSiFeed } from "@/lib/hooks/use-si-feed";
 import { LiveStatsBar } from "./live-stats";
+import { FollowOnX } from "@/components/launch/prelaunch";
 
 const SolarSystem = dynamic(() => import("@/components/three/solar-system"), {
   ssr: false,
@@ -82,6 +83,7 @@ export function Hero() {
                 Choose a planet <ArrowRight className="transition group-hover/btn:translate-x-0.5" />
               </Link>
             </Button>
+            {!getPwsiLink && <FollowOnX />}
             {getPwsiLink && (
               <Button asChild size="lg" variant="outline">
                 <Link href={getPwsiLink.href} {...(getPwsiLink.external ? { target: "_blank", rel: "noreferrer" } : {})}>

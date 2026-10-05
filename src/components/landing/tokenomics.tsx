@@ -8,6 +8,7 @@ import { Counter } from "@/components/ui/counter";
 import { Panel } from "@/components/ui/panel";
 import { useProtocolStats } from "@/lib/hooks/use-game";
 import { Reveal } from "./reveal";
+import { IS_TESTNET } from "@/lib/chains";
 
 const n = (v?: bigint) => (v === undefined ? 0 : Number(formatUnits(v, 18)));
 
@@ -33,7 +34,7 @@ export function Tokenomics() {
                 Spent means <span className="text-solar">burned</span> <span className="font-serif font-normal italic text-ion">and</span> shared.
               </>
             }
-            description="PWSI is the game's utility token. There is no staking, no yield and no promise of value. All game revenue (claims, upgrades, shields, missions, the 1% market fee) is split on arrival: 10% is burned, 90% funds daily leaderboard and lottery rewards. On testnet a rate-limited faucet is the only mint; on mainnet the token is launched on the pons launchpad."
+            description={`PWSI is the game's utility token. There is no staking, no yield and no promise of value. All game revenue (claims, upgrades, shields, missions, the 1% market fee) is split on arrival: 10% is burned, 90% funds daily leaderboard and lottery rewards. ${IS_TESTNET ? "On this test network a rate-limited faucet is the only mint." : "The token launches on the pons launchpad on Robinhood Chain with a fixed supply; the game itself can never mint."}`}
           />
           <ul className="mt-10 grid gap-3 text-sm text-haze">
             <li className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-solar" />Burn share bounded to 5–50% on-chain; any change waits behind a 2-day timelock.</li>

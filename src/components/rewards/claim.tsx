@@ -173,7 +173,7 @@ function AirdropTab({ account }: { account: `0x${string}` }) {
         ) : (
           <>
             <div className="mt-3 font-display text-4xl font-bold tracking-tight">Not eligible yet</div>
-            <p className="mt-3 text-sm text-haze">{data?.status === "published" ? "This wallet was not in the season snapshot." : "Claim a plot, upgrade, launch a mission, trade, or use the faucet before the snapshot to qualify."}</p>
+            <p className="mt-3 text-sm text-haze">{data?.status === "published" ? "This wallet was not in the season snapshot." : `Claim a plot, upgrade, launch a mission${IS_MAINNET ? " or trade" : ", trade, or use the faucet"} before the snapshot to qualify.`}</p>
           </>
         )}
       </Panel>
@@ -182,12 +182,12 @@ function AirdropTab({ account }: { account: `0x${string}` }) {
         <div className="grid gap-3 p-5 text-sm leading-relaxed text-haze">
           <p>The airdrop comes from a separate allocation inside the RewardPool. It never touches revenue-funded daily rewards.</p>
           <ul className="grid gap-2 font-mono text-xs">
-            <li className="flex justify-between border-b border-line/50 pb-2"><span className="text-mist">Base (any qualifying event or faucet use)</span><span>{data ? formatPWSI(BigInt(data.rules.base)) : "1,000"} PWSI</span></li>
+            <li className="flex justify-between border-b border-line/50 pb-2"><span className="text-mist">{IS_MAINNET ? "Base (any qualifying event)" : "Base (any qualifying event or faucet use)"}</span><span>{data ? formatPWSI(BigInt(data.rules.base)) : "1,000"} PWSI</span></li>
             <li className="flex justify-between border-b border-line/50 pb-2"><span className="text-mist">Per active UTC day (max {data?.rules.maxActiveDays ?? 8})</span><span>+{data ? formatPWSI(BigInt(data.rules.perActiveDay)) : "250"} PWSI</span></li>
             <li className="flex justify-between"><span className="text-mist">Claimed at least one plot</span><span>+{data ? formatPWSI(BigInt(data.rules.plotBonus)) : "500"} PWSI</span></li>
           </ul>
           {data?.preview && (
-            <p className="text-xs text-mist">Your activity: {data.preview.activeDays} active day(s){data.preview.claimedPlot ? " · claimed a plot" : ""}{data.preview.faucet ? " · faucet user" : ""}.</p>
+            <p className="text-xs text-mist">Your activity: {data.preview.activeDays} active day(s){data.preview.claimedPlot ? " · claimed a plot" : ""}{!IS_MAINNET && data.preview.faucet ? " · faucet user" : ""}.</p>
           )}
           <p className="text-xs text-mist">Protocol wallets are excluded. If total eligibility exceeds the allocation, everyone is scaled down pro-rata. Unclaimed airdrop returns to the airdrop allocation after 30 days.{IS_MAINNET ? " Eligibility rules can change before a snapshot is published." : " Testnet tokens have no value."}</p>
         </div>

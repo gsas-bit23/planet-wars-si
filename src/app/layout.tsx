@@ -1,4 +1,5 @@
 import { targetChain } from "@/lib/chains";
+import { X_HANDLE } from "@/lib/site";
 import type { Metadata, Viewport } from "next";
 import { Syne, Inter_Tight, JetBrains_Mono, Instrument_Serif } from "next/font/google";
 import { Providers } from "@/components/providers";
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
     description: "A rogue superintelligence owns the solar system. Take it back, one plot at a time.",
     images: ["/og.jpg"],
   },
-  twitter: { card: "summary_large_image" },
+  twitter: { card: "summary_large_image", site: X_HANDLE, creator: X_HANDLE },
 };
 
 export const viewport: Viewport = { themeColor: "#04050a", colorScheme: "dark" };
