@@ -4,7 +4,7 @@
 
 Planet Wars SI is an on-chain territory game for **Robinhood Chain**. It ran its public test on Robinhood Chain Testnet, and production is now in the **mainnet pre-launch** state. The eight planets are split into territory NFTs that you claim with the game token **$PWSI**. Players fortify plots, trade them peer-to-peer and defend worlds against the SI's daily attacks. All game revenue is split on arrival: **10% burned, 90% to a reward pool** that pays a daily top-100 leaderboard and a daily lottery for active players, claimed with Merkle proofs.
 
-**Live:** <https://pwsi.site> (also <https://planet-wars-si.vercel.app>) · Robinhood Chain mainnet (4663) pre-launch: launching soon, no contracts yet · X: [@PlanetWSI](https://x.com/PlanetWSI) · [mainnet launch checklist](docs/MAINNET_LAUNCH.md) · one-command launch: `scripts/launch-mainnet.sh`
+**Live:** <https://pwsi.site> · Robinhood Chain mainnet (4663) · token `$PWSI` [`0x96b9…8858`](https://robinhoodchain.blockscout.com/token/0x96b9e049C232FD2552ECFCE6F02A58e7CD648858) · [buy on pons](https://www.ponsfamily.com/launchpad/0x96b9e049C232FD2552ECFCE6F02A58e7CD648858) · X: [@PlanetWSI](https://x.com/PlanetWSI) · [mainnet launch checklist](docs/MAINNET_LAUNCH.md)
 
 *Working title. PWSI is a game token and territories are in-game items, not financial products. Rewards come only from game revenue already in the pool, are capped per day, and are never a promised return.*
 
@@ -225,6 +225,22 @@ Sources:
 - <https://robinhood.com/us/en/support/articles/robinhood-chain-testnet/>
 
 **Fallback.** `NEXT_PUBLIC_CHAIN_ID=84532` switches the app to Base Sepolia (a `base_sepolia` RPC alias is also in `foundry.toml`). The default build target is Robinhood Chain mainnet (4663); set `NEXT_PUBLIC_CHAIN_ID=46630` for the testnet.
+
+## Live deployment: Robinhood Chain mainnet (4663)
+
+**Launched 2026-10-05** from deployer `0xAB9F26b5A8898193429D55cBF7492B748EdE627D` (nonce 0→18). Operator (publisher + lottery): `0xdB9Cf47053e0EF3af68E6870f282E7574E2De3E0`. All six game contracts are source-verified on Sourcify (`exact_match`); Blockscout imports Sourcify matches (its API is Cloudflare-gated from this host). Token is the pons-launched PWSI at the address below (`BURN_MODE=burn`). No faucet.
+
+| Contract | Address |
+| --- | --- |
+| PWSI (token) | [`0x96b9e049C232FD2552ECFCE6F02A58e7CD648858`](https://robinhoodchain.blockscout.com/token/0x96b9e049C232FD2552ECFCE6F02A58e7CD648858) · [buy on pons](https://www.ponsfamily.com/launchpad/0x96b9e049C232FD2552ECFCE6F02A58e7CD648858) |
+| RevenueTreasury | [`0x596E9a0120DE1484648a67BFc32944D01A653dbE`](https://robinhoodchain.blockscout.com/address/0x596E9a0120DE1484648a67BFc32944D01A653dbE) |
+| RewardPool | [`0xF30b9411DCaC20940B79fd0295169F36FF81F137`](https://robinhoodchain.blockscout.com/address/0xF30b9411DCaC20940B79fd0295169F36FF81F137) |
+| DailyDraw | [`0x4cB957A52380CE6D12C1c4e7Aa6a17ebD46Bd7C0`](https://robinhoodchain.blockscout.com/address/0x4cB957A52380CE6D12C1c4e7Aa6a17ebD46Bd7C0) |
+| PlanetTerritory | [`0x8D87Ff624B381872d9e3015276AB87a32D99393b`](https://robinhoodchain.blockscout.com/address/0x8D87Ff624B381872d9e3015276AB87a32D99393b) |
+| TerritoryMarketplace | [`0xdFB3ef835C2BA1458F5e96EbFE1EF575F9af2da8`](https://robinhoodchain.blockscout.com/address/0xdFB3ef835C2BA1458F5e96EbFE1EF575F9af2da8) |
+| PlanetOps | [`0x4Ef086Aa9e84193Efe4dBE6cd01B04640658E5a8`](https://robinhoodchain.blockscout.com/address/0x4Ef086Aa9e84193Efe4dBE6cd01B04640658E5a8) |
+
+Deploy L2 gas: 11.43M ≈ **0.000229 ETH**. Lottery rounds for 2026-10-06 and 2026-10-07 were committed by the first cron run.
 
 ## Testnet deployment record: Robinhood Chain Testnet (46630)
 

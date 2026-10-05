@@ -1,6 +1,6 @@
 # Mainnet launch checklist: Robinhood Chain (4663)
 
-Status (2026-10-05): **production is in the mainnet pre-launch state, and nothing is deployed on mainnet.** https://pwsi.site is built for Robinhood Chain (4663) with no contracts. It shows "Launching soon", the lore and planets are browsable, every action is disabled with a clear note, there are no testnet traces, and it links to [@PlanetWSI](https://x.com/PlanetWSI). The testnet (46630) records stay in the repo (`contracts/deployments/46630.json`, `src/lib/generated/deployments.json`). Preview deployments still build for 46630.
+Status (2026-10-05): **LIVE on Robinhood Chain mainnet (4663).** Token `$PWSI` [`0x96b9…8858`](https://robinhoodchain.blockscout.com/token/0x96b9e049C232FD2552ECFCE6F02A58e7CD648858) · [buy on pons](https://www.ponsfamily.com/launchpad/0x96b9e049C232FD2552ECFCE6F02A58e7CD648858). Game contracts are in `contracts/deployments/4663.json` and verified on Sourcify. Site: https://pwsi.site · X: [@PlanetWSI](https://x.com/PlanetWSI). Testnet (46630) records stay in the repo for preview builds.
 
 On mainnet the game token is **not** deployed by this repo. It is launched on the **pons** launchpad, and `contracts/script/DeployMainnet.s.sol` deploys everything else around it: treasury, reward pool, daily draw, territory NFT, marketplace and ops. It deploys **no token and no faucet**.
 
