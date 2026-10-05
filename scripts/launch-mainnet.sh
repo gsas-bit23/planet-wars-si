@@ -45,7 +45,9 @@ plan() { printf '  \033[33mDRY\033[0m  would run: %s\n' "$*"; }
 if [[ -f "$MAINNET_ENV_FILE" ]]; then
   while IFS='=' read -r k v; do
     [[ -z "$k" || "$k" == \#* ]] && continue
-    [[ -z "${!k:-}" ]] && export "$k=$v"
+    # Mainnet secrets always come from the file: an ambient CRON_SECRET/LOTTERY_SECRET in the shell
+    # is usually the testnet one. Other keys don't override the caller.
+    if [[ "$k" == CRON_SECRET || "$k" == LOTTERY_SECRET || -z "${!k:-}" ]]; then export "$k=$v"; fi
   done < "$MAINNET_ENV_FILE"
 fi
 
@@ -165,16 +167,18 @@ node -e 'const d=require(process.argv[1]);for(const k of ["token","treasury","re
 # ───────────────────────────── 3c. Verify (non-fatal) ─────────────────────────────
 if [[ "$DRY_RUN" != "1" ]]; then
   say "3c. Source verification (Blockscout, then Sourcify as fallback)"
-  if run_forge --resume --verify --verifier blockscout --verifier-url "$BLOCKSCOUT_API" > /tmp/pwsi-launch-verify.log 2>&1; then
-    ok "Blockscout verification submitted"
-  else
-    info "Blockscout verification failed (log: /tmp/pwsi-launch-verify.log); trying Sourcify"
-    if run_forge --resume --verify --verifier sourcify > /tmp/pwsi-launch-verify-sourcify.log 2>&1; then
-      ok "Sourcify verification submitted (Blockscout imports Sourcify matches)"
-    else
-      info "verification incomplete; re-run later: (cd contracts && forge script script/DeployMainnet.s.sol --rpc-url \$RPC --resume --verify ...)"
-    fi
-  fi
+  # Per-contract verify-contract: cannot send transactions (unlike script --resume, which needs --broadcast).
+  verify_all() {
+    node -e 'const d=require(process.argv[1]);for(const t of d.transactions)if(t.transactionType.startsWith("CREATE"))console.log(t.contractName+" "+t.contractAddress)' \
+      "$ROOT/$BROADCAST_DIR/run-latest.json" | while read -r n a; do
+      f="$(cd contracts && grep -rlE "^contract $n\b" src | head -1)"
+      (cd contracts && forge verify-contract "$a" "$f:$n" --chain $CHAIN_ID --rpc-url "$RPC" --guess-constructor-args "$@" --watch) >> /tmp/pwsi-launch-verify.log 2>&1 \
+        && ok "verified $n $a" || info "verification failed for $n $a (log: /tmp/pwsi-launch-verify.log)"
+    done
+  }
+  : > /tmp/pwsi-launch-verify.log
+  verify_all --verifier sourcify   # Blockscout imports Sourcify matches
+  verify_all --verifier blockscout --verifier-url "$BLOCKSCOUT_API" || true
 fi
 
 # ───────────────────────────── 4. Sync + preflight ─────────────────────────────
