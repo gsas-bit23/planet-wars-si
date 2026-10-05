@@ -5,6 +5,7 @@ import { addresses } from "@/lib/contracts";
 import { IS_MAINNET, explorerAddress, targetChain } from "@/lib/chains";
 import { shortAddress } from "@/lib/utils";
 import { XIcon } from "@/components/ui/x-icon";
+import { TokenCA } from "@/components/launch/token-ca";
 import { X_HANDLE, X_URL } from "@/lib/site";
 
 const CONTRACTS = [
@@ -40,6 +41,7 @@ export function SiteFooter() {
           >
             <XIcon className="size-3.5" /> {X_HANDLE}
           </a>
+          <TokenCA variant="compact" />
         </div>
         <div className="grid grid-cols-2 gap-2 text-sm">
           {NAV.map((n) => (

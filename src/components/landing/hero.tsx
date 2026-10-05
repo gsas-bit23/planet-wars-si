@@ -10,6 +10,7 @@ import { DecodeText } from "@/components/ui/decode-text";
 import { useSiFeed } from "@/lib/hooks/use-si-feed";
 import { LiveStatsBar } from "./live-stats";
 import { FollowOnX } from "@/components/launch/prelaunch";
+import { TokenCA } from "@/components/launch/token-ca";
 
 const SolarSystem = dynamic(() => import("@/components/three/solar-system"), {
   ssr: false,
@@ -86,11 +87,14 @@ export function Hero() {
             {!getPwsiLink && <FollowOnX />}
             {getPwsiLink && (
               <Button asChild size="lg" variant="outline">
-                <Link href={getPwsiLink.href} {...(getPwsiLink.external ? { target: "_blank", rel: "noreferrer" } : {})}>
+                <Link href={getPwsiLink.href} {...(getPwsiLink.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}>
                   {getPwsiLink.label}
                 </Link>
               </Button>
             )}
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, ease, delay: 0.9 }} className="mt-6">
+            <TokenCA />
           </motion.div>
         </div>
       </div>

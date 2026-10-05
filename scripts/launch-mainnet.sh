@@ -153,14 +153,29 @@ if [[ "$DRY_RUN" != "1" && "${YES:-0}" != "1" ]]; then
   read -r -p "  Broadcast the deployment to MAINNET from $DEPLOYER? Type 'launch' to continue: " answer
   [[ "$answer" == "launch" ]] || die "aborted by user"
 fi
-say "3b. Deploy (--broadcast$([[ $DRY_RUN == 1 ]] && echo ' to the fork' || echo ', Blockscout verification'))"
-verify=()
-[[ "$DRY_RUN" == "1" ]] || verify=(--verify --verifier blockscout --verifier-url "$BLOCKSCOUT_API")
-run_forge --broadcast "${verify[@]}" > /tmp/pwsi-launch-deploy.log 2>&1 \
+say "3b. Deploy (--broadcast$([[ $DRY_RUN == 1 ]] && echo ' to the fork'))"
+# Verification runs as its own non-fatal step below, so an explorer outage can't abort a launch
+# halfway (after the broadcast, before sync/Vercel).
+run_forge --broadcast > /tmp/pwsi-launch-deploy.log 2>&1 \
   || { tail -40 /tmp/pwsi-launch-deploy.log; die "deployment failed (log: /tmp/pwsi-launch-deploy.log)"; }
 [[ -f "$DEPLOY_JSON" ]] || die "deployment record $DEPLOY_JSON missing"
 ok "deployed: $(grep -c '"hash"' "$BROADCAST_DIR/run-latest.json" 2>/dev/null || echo '?') broadcast entries"
 node -e 'const d=require(process.argv[1]);for(const k of ["token","treasury","rewardPool","dailyDraw","territory","marketplace","ops"])console.log(`  ..   ${k.padEnd(12)} ${d[k]}`)' "$ROOT/$DEPLOY_JSON"
+
+# ───────────────────────────── 3c. Verify (non-fatal) ─────────────────────────────
+if [[ "$DRY_RUN" != "1" ]]; then
+  say "3c. Source verification (Blockscout, then Sourcify as fallback)"
+  if run_forge --resume --verify --verifier blockscout --verifier-url "$BLOCKSCOUT_API" > /tmp/pwsi-launch-verify.log 2>&1; then
+    ok "Blockscout verification submitted"
+  else
+    info "Blockscout verification failed (log: /tmp/pwsi-launch-verify.log); trying Sourcify"
+    if run_forge --resume --verify --verifier sourcify > /tmp/pwsi-launch-verify-sourcify.log 2>&1; then
+      ok "Sourcify verification submitted (Blockscout imports Sourcify matches)"
+    else
+      info "verification incomplete; re-run later: (cd contracts && forge script script/DeployMainnet.s.sol --rpc-url \$RPC --resume --verify ...)"
+    fi
+  fi
+fi
 
 # ───────────────────────────── 4. Sync + preflight ─────────────────────────────
 say "4. Sync into the web app + preflight"

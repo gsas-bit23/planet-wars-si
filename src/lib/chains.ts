@@ -25,3 +25,8 @@ export function explorerAddress(addr: string) {
   const url = targetChain.blockExplorers?.default.url;
   return url ? `${url}/address/${addr}` : undefined;
 }
+
+export function explorerToken(addr: string) {
+  const url = targetChain.blockExplorers?.default.url;
+  return url ? `${url}/token/${addr}` : undefined;
+}
