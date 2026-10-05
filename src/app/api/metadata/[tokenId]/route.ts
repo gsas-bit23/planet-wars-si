@@ -30,7 +30,7 @@ export async function GET(req: NextRequest, ctx: RouteContext<"/api/metadata/[to
       /* fall back to defaults */
     }
   }
-  const origin = req.nextUrl.origin;
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin;
   return NextResponse.json({
     name: plotLabel(id),
     description: `A territory plot on ${planet.name}, reclaimed from the SI. In-game item for Planet Wars SI.`,

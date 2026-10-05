@@ -16,6 +16,10 @@ export const memoryStore: GameStore = {
     const set = new Set(ids);
     return mem.defenses.filter((d) => set.has(d.attackId));
   },
+  async listDefensesSince(sinceIso) {
+    const t = Date.parse(sinceIso);
+    return mem.defenses.filter((d) => Date.parse(d.createdAt) >= t);
+  },
   async addDefense(d) {
     if (mem.defenses.some((x) => x.attackId === d.attackId && x.tokenId === d.tokenId)) return false;
     mem.defenses.push(d);

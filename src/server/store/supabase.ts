@@ -30,6 +30,22 @@ export const supabaseStore: GameStore = {
       createdAt: r.created_at,
     }));
   },
+  async listDefensesSince(sinceIso) {
+    const { data, error } = await db()
+      .from("si_defenses")
+      .select("attack_id, wallet, token_id, power, created_at")
+      .gte("created_at", sinceIso)
+      .order("created_at")
+      .limit(50_000);
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      attackId: r.attack_id,
+      wallet: r.wallet,
+      tokenId: String(r.token_id),
+      power: r.power,
+      createdAt: r.created_at,
+    }));
+  },
   async addDefense(d: Defense & { signature: string }) {
     const { error } = await db().from("si_defenses").insert({
       attack_id: d.attackId,
