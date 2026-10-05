@@ -2,11 +2,11 @@
 
 > A rogue superintelligence (the **SI**, signing as `SI//OVERMIND`) has annexed the solar system. Claim it back one plot at a time.
 
-Planet Wars SI is an on-chain territory game built for **Robinhood Chain Testnet**. The eight planets are split into territory NFTs that you claim with the game token **$PWSI**. Players fortify plots, trade them peer-to-peer and defend worlds against the SI's daily attacks. Every token spent in the war is burned.
+Planet Wars SI is an on-chain territory game built for **Robinhood Chain Testnet**. The eight planets are split into territory NFTs that you claim with the game token **$PWSI**. Players fortify plots, trade them peer-to-peer and defend worlds against the SI's daily attacks. All game revenue is split on arrival: **10% burned, 90% to a reward pool** that pays a daily top-100 leaderboard and a daily lottery for active players, claimed with Merkle proofs.
 
 **Live:** <https://planet-wars-si.vercel.app> (Robinhood Chain Testnet · Vercel · Supabase)
 
-*Working title. Testnet only: PWSI has no monetary value, and territories are in-game items.*
+*Working title. Testnet only: PWSI has no monetary value, and territories are in-game items. Rewards come only from game revenue already in the pool, are capped per day, and are never a promised return.*
 
 | Landing | Planet detail |
 | --- | --- |
@@ -14,14 +14,17 @@ Planet Wars SI is an on-chain territory game built for **Robinhood Chain Testnet
 | **Marketplace** | **SI broadcasts** |
 | ![Marketplace](screenshots/03-marketplace.png) | ![SI feed](screenshots/04-si-broadcasts.png) |
 
-More shots: [burn dashboard](screenshots/05-burn-dashboard.png), [portfolio](screenshots/06-portfolio.png), and the live testnet build: [landing](screenshots/07-testnet-landing.png), [burn](screenshots/08-testnet-burn.png), [marketplace](screenshots/09-testnet-marketplace.png).
+More shots: [burn dashboard](screenshots/05-burn-dashboard.png), [portfolio](screenshots/06-portfolio.png), and the live testnet build: [landing](screenshots/07-testnet-landing.png), [burn](screenshots/08-testnet-burn.png), [marketplace](screenshots/09-testnet-marketplace.png). Rewards (live): [leaderboard](screenshots/live-leaderboard.png), [rewards & lottery](screenshots/live-rewards.png), [claim & airdrop](screenshots/live-claim.png), [revenue: burned vs pooled](screenshots/live-revenue.png).
 
 ---
 
 ## Contents
 - [Architecture](#architecture)
 - [Contracts](#contracts)
-- [Tokenomics & burn routes](#tokenomics--burn-routes)
+- [Tokenomics: revenue split](#tokenomics-revenue-split)
+- [Rewards: leaderboard, lottery, Merkle claims, airdrop](#rewards-leaderboard-lottery-merkle-claims-airdrop)
+- [Royalties & OpenSea](#royalties--opensea)
+- [Mainnet: external token on the pons launchpad](#mainnet-external-token-on-the-pons-launchpad)
 - [The SI (off-chain game engine)](#the-si-off-chain-game-engine)
 - [Network: Robinhood Chain Testnet](#network-robinhood-chain-testnet)
 - [Live deployment](#live-deployment-robinhood-chain-testnet-46630)
@@ -36,37 +39,44 @@ More shots: [burn dashboard](screenshots/05-burn-dashboard.png), [portfolio](scr
 ## Architecture
 
 ```
-                      ┌──────────────────────────── Robinhood Chain Testnet (46630) ───────────────────────────┐
-                      │                                                                                         │
- wallet (RainbowKit)──┼─▶ PWSIFaucet ──mint──▶ PWSIToken (ERC-20, burnable, permit, 1B lifetime cap)           │
-   wagmi + viem       │                          ▲  burnFrom            ▲ burn                ▲ burn              │
-                      ├─▶ PlanetTerritory (ERC-721) ── 50% of claim ────┘                     │                   │
-                      │       │ 50% → resistance fund                                         │                   │
-                      ├─▶ TerritoryMarketplace ── 1% fee ─▶ BuybackBurnTreasury.burnAccrued()─┘ (same tx)       │
-                      │                                       └─ buybackAndBurn(): ETH → DEX → PWSI → burn       │
-                      └─▶ PlanetOps (upgrades, shields, missions) ── 100% burnFrom ──────────────────────────────┘
+                      ┌──────────────────────────── Robinhood Chain Testnet (46630) ─────────────────────────────┐
+ wallet (RainbowKit)──┼─▶ PWSIFaucet ──mint──▶ PWSIToken (testnet only; mainnet = external pons token)          │
+   wagmi + viem       │                                                                                            │
+                      ├─▶ PlanetTerritory (ERC-721 + ERC-2981 1%) ── claim price ─┐                                │
+                      ├─▶ PlanetOps (upgrades · shields · missions) ── cost ───────┤                               │
+                      ├─▶ TerritoryMarketplace ── 1% fee ──────────────────────────┤                               │
+                      │   external marketplaces ── royalties (ETH/PWSI) ───────────┤                               │
+                      │                                                            ▼                               │
+                      │            RevenueTreasury.notifyRevenue(source)  (same tx, never holds PWSI)              │
+                      │               ├── burnBps (10%, bounds 5–50%, 2-day timelock) ─▶ burn() or 0x…dEaD         │
+                      │               └── rest (90%) ─▶ RewardPool ◀── airdrop allocation (separate bucket)        │
+                      │                                    │  publishRewards(day, merkleRoot, lb, lottery) ≤ cap   │
+                      ├─▶ RewardPool.claim / claimMany ◀───┘  publishAirdrop(1e9+season, root)                   │
+                      └── DailyDraw: commit(seedHash) → close(entrants) → reveal(seed) ⇒ randomness ⇒ winners      │
                                          │ events / views
- Next.js 16 (App Router) ◀───────────────┘
+ Next.js 16 (App Router) ◀──────────────┘
    ├─ UI: React 19, Tailwind v4, Radix/shadcn-style primitives, motion, react-three-fiber
-   ├─ /api/burns            indexer: Transfer(→0x0) logs classified by route (primary / sinks / market fee)
-   ├─ /api/si/feed          SI broadcast + attacks + defenses + per-planet SI control
-   ├─ /api/si/defend        signed (EIP-191) defense commitments, ownerOf verified on-chain
-   ├─ /api/si/tick          daily cron: persist broadcast/attacks (optional LLM copy)
-   ├─ /api/metadata/[id]    ERC-721 metadata (tokenURI = METADATA_BASE_URI + id)
+   ├─ /api/burns              revenue events (RevenueProcessed: amount, burned, pooled, source)
+   ├─ /api/leaderboard        daily scores (live for today, stored once published)
+   ├─ /api/rewards            epochs, lottery rounds, scoring config  · /api/rewards/epochs/[id] (all proofs)
+   ├─ /api/claims?address=    a wallet's allocations + Merkle proofs  · /api/airdrop?address= eligibility
+   ├─ /api/lottery/[round]    verification data (seed, entrants, target block, randomness, winners)
+   ├─ /api/si/*               SI feed, signed defenses, daily cron (SI tick + rewards engine)
+   ├─ /api/metadata/[id]      ERC-721 metadata · /api/metadata/contract (contractURI, OpenSea format)
    └─ /api/health
  Postgres (Supabase) ◀── service-role key, server only. In-memory fallback when not configured.
 ```
 
-**Design split.** Ownership, the token, claims, the marketplace and the burn sinks live on-chain. Game logic (SI broadcasts, attacks, defense resolution, planet control) runs off-chain in the backend and DB. It is deterministic from `SI_SEED` plus the UTC day, so every server instance agrees on the schedule even before anything is persisted.
+**Design split.** Ownership, the token, claims, the marketplace, the revenue split, reward caps and claims live on-chain. Game logic (SI broadcasts, attacks, defense resolution, planet control) runs off-chain in the backend and DB. It is deterministic from `SI_SEED` plus the UTC day, so every server instance agrees on the schedule even before anything is persisted.
 
 ### Repository layout
 ```
 contracts/            Foundry workspace (src, test, script, deployments/<chainId>.json)
 scripts/              sync-contracts.mjs → src/lib/generated/{abis,deployments}.ts
-src/app/              routes: / /planets /planets/[slug] /marketplace /portfolio /broadcasts /faucet /burn + /api/*
+src/app/              routes: / /planets /planets/[slug] /marketplace /portfolio /leaderboard /rewards /claim /broadcasts /faucet /burn + /api/*
 src/components/       ui primitives, layout, landing, planet, market, si, burn, three (3D)
 src/lib/              chains, contracts, wagmi config, planet metadata, hooks
-src/server/           env, viem client, indexer, rate limiting, SI engine, store (memory | supabase)
+src/server/           env, viem client, indexer, rate limiting, SI engine, rewards engine, store (memory | supabase)
 supabase/migrations/  Postgres schema + RLS
 e2e/                  Playwright end-to-end flow + screenshot capture
 ```
@@ -77,12 +87,16 @@ Solidity 0.8.28 (cancun) with OpenZeppelin Contracts v5. Everything is in `contr
 
 | Contract | Role |
 | --- | --- |
-| `PWSIToken` | ERC-20 + Burnable + Permit + AccessControl. `MINTER_ROLE` (faucet only). Hard **1,000,000,000 lifetime mint cap**: burned tokens do not free up headroom. Tracks `totalBurned`. |
-| `PWSIFaucet` | Gives 2,500 PWSI per claim, at most once per wallet every 24 h (`nextClaimAt`, `claimCount`). The admin can reconfigure or pause it. Testnet only. |
-| `PlanetTerritory` | ERC-721 Enumerable (`PWSI-T`). Bodies are added with `addBody(name, supply, cols, basePrice, active)`, so moons and dwarf planets can be added later without a redeploy. `tokenId = bodyId × 1e6 + plotIndex`. Zones are deterministic per 5×5 sector: **Legendary 4% (×10 price)**, **Rare 16% (×2.5)**, Common. `claim` / `claimBatch` (≤ 25) burn **50%** of the price; the rest goes to the resistance fund. |
-| `TerritoryMarketplace` | Escrowed listings: `list`, `updatePrice`, `cancel` (also works while paused), `buy(tokenId, maxPrice)` with slippage protection. **1% fee** (`feeBps = 100`, hard max 5%) goes to the treasury and is burned in the same transaction. Tracks volume, fees and trades. |
-| `BuybackBurnTreasury` | `burnAccrued()` (permissionless) burns all PWSI it holds. `buybackAndBurn(ethIn, minOut, deadline)` (KEEPER_ROLE) swaps ETH→PWSI on a Uniswap-V2-style router and burns the output. |
-| `PlanetOps` | Token sinks, **100% burned** via `burnFrom`. Upgrade costs 50 × (level+1), up to level 10. Shields cost 2 PWSI/unit (max 1000). Missions: Recon 25, Sabotage 75, Liberation 200 (extendable with `setMissionCost`). |
+| `PWSIToken` | **Testnet only.** ERC-20 + Burnable + Permit + AccessControl. `MINTER_ROLE` (faucet only). Hard **1,000,000,000 lifetime mint cap**. On mainnet the game uses an external token (see [pons](#mainnet-external-token-on-the-pons-launchpad)). |
+| `PWSIFaucet` | **Testnet only.** 2,500 PWSI per claim, at most once per wallet every 24 h. |
+| `PlanetTerritory` | ERC-721 Enumerable (`PWSI-T`) + **ERC-2981** (1% to the treasury, capped at 10%) + `contractURI()`. Bodies are added with `addBody(...)`. `tokenId = bodyId × 1e6 + plotIndex`. Zones per 5×5 sector: **Legendary 4% (×10 price)**, **Rare 16% (×2.5)**, Common. Claim payments go to the RevenueTreasury. |
+| `TerritoryMarketplace` | Escrowed listings, `buy(tokenId, maxPrice)` with slippage protection. **1% fee** (hard max 5%) to the RevenueTreasury. |
+| `PlanetOps` | Upgrades (50 × (level+1), to level 10), shields (2 PWSI/unit), missions (Recon 25, Sabotage 75, Liberation 200). All costs go to the RevenueTreasury. |
+| `RevenueTreasury` | Receives **all** revenue and splits it in the same transaction: `burnBps` burned (default 10%), the rest to the RewardPool. Burn mode is fixed at deploy: `BurnFunction` (`token.burn`) or `DeadAddress` (transfer to `0x…dEaD`, works for any ERC-20). Tracks `totalRevenue`, `totalBurned`, `totalPooled`, `revenueBySource[8]`. `burnBps` bounded **5–50%**, changes need `queueBurnBps` → 2 days → `applyBurnBps`. Permissionless `process()` splits stray PWSI (e.g. token royalties). `buybackAndSplit` (KEEPER) swaps ETH royalties to the token via a V2 router. |
+| `RewardPool` | Merkle distributor. `publishRewards(day, root, leaderboardTotal, lotteryTotal, …)` (PUBLISHER) is capped on-chain at `epochCap()` = `epochBudgetBps` (20%, bounds 1–50%) of unallocated rewards, and each slice at its share (`lotteryBps` 30%). A separate **airdrop allocation** (`fundAirdrop`, `publishAirdrop` with ids ≥ 1e9) never touches revenue rewards. `claim` / `claimMany` (anyone can relay; funds go to the account), one claim per (epoch, account), 30-day window, then `sweep` returns leftovers. |
+| `DailyDraw` | Commit-reveal lottery randomness: `commit(round, keccak256(seed))` before the UTC day starts → `close(round, entrantsHash, n)` after it ends (target = current L2 block + 10, via ArbSys) → `reveal(round, seed)` within 256 blocks. randomness = `keccak256(seed, blockhash(target), round, entrantsHash)`. Anyone can `voidRound` a withheld reveal; voided rounds are never redrawn. `drawIndices(randomness, n, k)` (view) picks the winners. |
+
+All token movements use OpenZeppelin `SafeERC20`, so non-standard ERC-20s (no return value) work. Revenue is measured from the treasury's balance, so fee-on-transfer tokens are handled too (the token's own fee is then taken on the split transfers).
 
 ### Planet configuration (`script/GameConfig.sol`)
 
@@ -99,29 +113,84 @@ Solidity 0.8.28 (cancun) with OpenZeppelin Contracts v5. Everything is in `contr
 
 Smaller, denser worlds cost more per plot. Gas giants offer thousands of cheaper plots.
 
-## Tokenomics & burn routes
+## Tokenomics: revenue split
 
-The language here is deliberate. Territories are **in-game plots**, not shares, and nothing in this game is an investment. PWSI is a utility/game token on a testnet with no monetary value.
+The language here is deliberate. Territories are **in-game plots**, not shares, and nothing in this game is an investment. PWSI is a utility/game token on a testnet with no monetary value. Rewards are paid **only from revenue already in the pool**, are capped per day, shrink when revenue shrinks, and are never promised.
 
-| Flow | Where tokens go |
-| --- | --- |
-| Faucet | Mints 2,500 PWSI per wallet per 24 h, counted against the 1B lifetime cap. |
-| Primary claim | **50% burned**, 50% to the resistance fund (configurable `primaryBurnBps`). |
-| Marketplace sale | Seller receives 99%. **1% fee → treasury → burned** in the same tx. |
-| Upgrades / shields / missions | **100% burned**. |
-| Buyback (mainnet design) | Treasury ETH → DEX → PWSI → burned. |
+| Revenue source (`RevenueTreasury` source id) | Paid by | Split |
+| --- | --- | --- |
+| Plot claims (0) | player → treasury | 10% burned · 90% RewardPool |
+| Upgrades (1), shields (2), missions (3) | player → treasury | 10% · 90% |
+| Marketplace fee, 1% of each sale (4) | buyer → treasury | 10% · 90% |
+| ERC-2981 royalties (5) / ETH buybacks (6) / other (7) | external marketplaces / keeper / anyone via `process()` | 10% · 90% |
+| Faucet (testnet) | mints 2,500 PWSI per wallet per 24 h | no revenue |
 
-All burns are real ERC-20 burns (`Transfer(from, 0x0)`), and they decrease `totalSupply`. The `/burn` dashboard reads on-chain counters (`token.totalBurned`, `treasury.totalFeesBurned`, `ops.totalSinkBurned`, and others). It also indexes `Transfer → 0x0` events from the deploy block and classifies each by route.
+- **Owner-configurable within bounds, with a timelock.** `burnBps` can only be 500–5000 (5–50%). A change is queued on-chain, visible for 2 days, then anyone can apply it. Pool budgets (`epochBudgetBps` 1–50%, `lotteryBps` 10–70%) are bounded too.
+- **Burn tracking in our contracts.** `/burn` (Revenue) reads `treasury.totalBurned/totalPooled/revenueBreakdown` and the `RevenueProcessed` events, so it also works for an external token without a burn counter.
+- **Invariants (tested):** burned + pooled == revenue for every payment (fuzz, any bps); the treasury never holds tokens; pool balance == airdrop funding + pooled − claimed and always ≥ airdrop reserve + outstanding allocations; no (epoch, account) is paid twice; per-epoch claimed ≤ total.
 
-### Buyback-and-burn on mainnet
-On testnet there is no PWSI liquidity, so the 1% marketplace fee is paid **in PWSI** and burned directly (`burnAccrued`). The contract already implements the mainnet path:
+## Rewards: leaderboard, lottery, Merkle claims, airdrop
 
-1. Deploy a PWSI/WETH pool on a Uniswap-V2-compatible DEX on Robinhood Chain.
-2. Call `setRouter(router)` as admin, then grant `KEEPER_ROLE` to an automation account.
-3. Route protocol ETH revenue to the treasury (for example, an ETH-denominated fee on a future product).
-4. The keeper calls `buybackAndBurn(ethIn, minOut, deadline)`. The treasury calls `swapExactETHForTokens(minOut, [WETH, PWSI], treasury, deadline)` and burns exactly the received balance delta. `minOut` should come from an off-chain quote (TWAP or quote minus slippage) to prevent sandwiching.
+The daily cron (`/api/si/tick`, 00:05 UTC) runs the rewards engine (`src/server/rewards/`) after the SI tick. It is idempotent and re-runnable. For each finished UTC day D:
 
-`totalBuybackBurned` and `totalEthSpent` are tracked separately from fee burns. Tests use a mock router.
+1. **Commit** seeds for the next two rounds (`seed = HMAC-SHA256(LOTTERY_SECRET, chainId:round)`).
+2. **Close** round D with the entrant list, wait for the target L2 block, **reveal** (or void if the window was missed).
+3. **Score** the leaderboard for D, merge with lottery winners, build an OpenZeppelin `StandardMerkleTree` over `(uint256 epochId, address account, uint256 amount)`, store all proofs, and **publish** the root to `RewardPool` with the operator key. The contract enforces the caps.
+
+Epoch budget: `epochCap = 20% × unallocated rewards`, split **70% leaderboard / 30% lottery**. An unused slice simply stays in the pool.
+
+### Daily leaderboard (top 100)
+- `holdScore` = Σ over plots **held continuously ≥ 24 h at the end of the day** of zone weight (common 1, rare 2.5, legendary 6) × (1 + level/4).
+- `activityScore` (per day, capped): upgrades 3 pts (max 5), shields 2 (max 5), missions 1 (max 5), SI defenses 1 (max 5).
+- `score = holdScore + activityScore`. Only wallets with **≥ 1 qualifying action that day** rank. Ties break by address.
+- **Wash/self-trade resistance:** marketplace trades score **0**, and any transfer (including a purchase) restarts the 24-hour holding clock. Moving plots between your own wallets earns nothing and costs the 1% fee. Protocol wallets (contracts, deployer, operator, `REWARDS_EXCLUDE`) never rank.
+- **Payout curve** (share of the leaderboard pot): #1 10%, #2 6%, #3 4%, #4–10 2% each, #11–25 1% each, #26–50 0.8% each, #51–100 0.62% each (sums to 100%). With fewer than 100 ranked players, shares are renormalised over those present.
+
+### Daily lottery (100 winners, equal shares, free entry)
+- **Eligibility:** at least one qualifying game event in the last **N UTC days** (`LOTTERY_ACTIVITY_DAYS`, default **7**): plot claim, upgrade, shield, mission, marketplace trade (buyer or seller), or SI defense. Protocol wallets are excluded.
+- **Anti-sybil:** every qualifying on-chain action costs PWSI (10% burned), and defenses need a held plot, so each extra wallet costs real in-game spend. A sybil can still buy several tickets this way; we accept and document that trade-off rather than adding identity checks.
+- **Randomness and its limits:** Chainlink VRF does not list Robinhood Chain ([supported networks](https://docs.chain.link/vrf/v2-5/supported-networks)); Chainlink is present there only via Data Streams and CCIP. `prevrandao` is constant on this Arbitrum chain and `block.number` is the L1 block ([Robinhood: differences from Ethereum](https://docs.robinhood.com/chain/differences-from-ethereum/)). Third-party VRF-style coordinators exist on testnet (Randomhood, Quiver, Dice Protocol) but are unaudited, operator-trust services. We therefore use **commit-reveal + a future L2 block hash** (`DailyDraw`): the operator can't pick winners after seeing the block hash (the seed is committed before the day starts and the entrant list is fixed before the target block), and the sequencer doesn't know the seed. Residual trust: the operator could withhold a reveal (that day's lottery is voided and the pot stays in the pool, with no redraw), and operator + sequencer collusion could bias a draw. Everything is independently checkable via `/api/lottery/<round>` and `DailyDraw.drawIndices`.
+
+### Claims
+`/claim` → **Daily rewards** tab: all of a wallet's unclaimed epochs in one `claimMany` transaction. Proofs come from `/api/claims?address=`, and each epoch's full allocation list (the URI emitted on-chain) is at `/api/rewards/epochs/<id>`. 30-day claim window, then `sweep` returns leftovers to the pool.
+
+### Airdrop
+The testnet deploy funds a separate **10,000,000 PWSI airdrop allocation** inside the RewardPool (`AIRDROP_ALLOCATION`). `/claim` → **Airdrop** tab shows live eligibility for season 1: any qualifying game event or faucet use, 1,000 base + 250 per active UTC day (max 8) + 500 if the wallet claimed a plot, scaled down pro-rata if the allocation would be exceeded. The operator publishes the snapshot once:
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" "https://<site>/api/rewards/airdrop?season=1"
+```
+Season 1 has **not** been published yet. The snapshot time is the project owner's call.
+
+## Royalties & OpenSea
+- `PlanetTerritory` implements **ERC-2981**: `royaltyInfo` returns 1% to the RevenueTreasury (owner-adjustable, capped at 10%). Royalties received in ETH can be swapped with `buybackAndSplit`; royalties in the token are split with `process()`.
+- `contractURI()` → `/api/metadata/contract` (name, description, image, `seller_fee_basis_points: 100`, `fee_recipient` = treasury) in [OpenSea's contract-level metadata format](https://docs.opensea.io/docs/contract-level-metadata). Token metadata includes absolute image URLs and OpenSea-style `attributes`.
+- **OpenSea supports Robinhood Chain mainnet (4663)**, including NFTs ([announcement](https://opensea.io/blog/articles/robinhood-chain-is-live-on-opensea), [OpenSea learn](https://opensea.io/learn/blockchain/what-is-robinhood-chain)). I found no OpenSea support for **Robinhood Chain Testnet (46630)**, so treat testnet listing there as unsupported. Marketplaces may or may not honour ERC-2981; it is a signal, not enforcement. A chain-native marketplace (HOODIES) is listed in [the community guide](https://rhchain.network/guide/).
+
+## Mainnet: external token on the pons launchpad
+
+On Robinhood Chain **mainnet (4663)** the game token is **not deployed by this repo**. The project owner launches it on **pons** (pons.family / ponsfamily.com), and the game contracts are deployed around it. **Nothing has been deployed to mainnet.**
+
+**What pons produces (researched 2026-10-05):**
+- pons is a token launchpad on Robinhood Chain mainnet (chain 4663) with a bonding curve that graduates into a locked Uniswap V4 pool. Sources: [docs.ponsfamily.com](https://docs.ponsfamily.com/) ([llms.txt](https://docs.ponsfamily.com/llms.txt)), [github.com/ponsdotdev/ponsfamily](https://github.com/ponsdotdev/ponsfamily), [Coinmonks: tracking the pons launchpad on-chain](https://medium.com/coinmonks/pons-api-on-robinhood-chain-how-to-track-the-pons-launchpad-on-chain-91b91e6b6a4b).
+- **V2 tokens (`PonsV2LauncherToken`)**: OpenZeppelin `ERC20` + `ERC20Burnable`, fixed 1B supply minted once to the curve, 18 decimals, **no transfer fee, no mint, no blacklist**. Creator tax/fees live in the curve and the V4 hook, not in the token. They expose `burn(uint256)` but no burn counter. V2 factory: `0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e`.
+- **V1 tokens (`PonsLauncherToken`)**: plain ERC-20 **without** `burn()`, with launch-window buy limits (max wallet/tx, same-block snipe protection) enforced from the pool. V1 factory: `0xA5aAb3F0c6EeadF30Ef1D3Eb997108E976351feB`.
+- The docs say public launching is currently closed (check `canLaunch(address)` on the factory).
+
+**How the contracts handle it:** every game contract takes the token address as a constructor parameter (`DeployLib.deployGame(IERC20 token, …)`). The treasury burns with `token.burn()` (`BURN_MODE=burn`, for pons V2) or by transferring to `0x000000000000000000000000000000000000dEaD` (`BURN_MODE=dead`, the default; works with any ERC-20), and it keeps its own `totalBurned`. All transfers use SafeERC20. Tests cover a plain non-burnable token, a no-return-value token and a fee-on-transfer token (`ExternalToken.t.sol`, `RevenueTreasury.t.sol`).
+
+**Deploying the game on mainnet (when ready; not done):**
+```bash
+cd contracts
+export DEPLOYER_PRIVATE_KEY=...            # admin; consider a multisig as admin afterwards
+export TOKEN_ADDRESS=0x...                 # the pons-launched token
+export OPERATOR_ADDRESS=0x...              # backend publisher key (separate from the admin)
+export BURN_MODE=burn                      # pons V2 (ERC20Burnable) · "dead" for anything else
+export METADATA_BASE_URI=https://<site>/api/metadata/ CONTRACT_URI=https://<site>/api/metadata/contract
+forge script script/DeployMainnet.s.sol --rpc-url robinhood_mainnet            # dry run first
+forge script script/DeployMainnet.s.sol --rpc-url robinhood_mainnet --broadcast --verify \
+  --verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/
+```
+`DeployMainnet.s.sol` deploys everything **except the token and the faucet**, checks that `TOKEN_ADDRESS` has code, and in `burn` mode simulates `burn(0)` to refuse tokens without `burn()`. It writes `deployments/4663.json` with `faucet: 0x0`; `npm run contracts:sync` turns that into `faucet: null`, and the UI then **hides the faucet page and nav link** (`/faucet` returns 404). Set `NEXT_PUBLIC_TOKEN_BUY_URL` to the token's pons page to show a "Get PWSI" link instead. The airdrop allocation on mainnet must be funded by the owner with `RewardPool.fundAirdrop(amount)` (approve first). `Deploy.s.sol` refuses chain 4663.
 
 ## The SI (off-chain game engine)
 
@@ -156,24 +225,28 @@ Sources:
 
 ## Live deployment: Robinhood Chain Testnet (46630)
 
-Deployed on 2026-10-05 from `0x6F9AC937d6621226943FD3bB9a5B7e33EC81a616`. The first deploy transaction is in L2 block 128923025. All six contracts are source-verified on Blockscout.
+**v2 (current, rewards economy)**: deployed 2026-10-05 from `0x6F9AC937d6621226943FD3bB9a5B7e33EC81a616`; first deploy transaction in L2 block 128943055. All eight contracts are source-verified on Blockscout. Rewards operator (publisher + lottery): `0x8cfDeb78ac72179245603b09b63cB71e4dB07094`.
 
 | Contract | Address |
 | --- | --- |
-| PWSIToken | [`0xd3B16975DEAdae0792C05482228f6764CFD6Ac08`](https://explorer.testnet.chain.robinhood.com/address/0xd3B16975DEAdae0792C05482228f6764CFD6Ac08) |
-| PWSIFaucet | [`0xf6f03a7796A3A9d9a97c817Cfeb74E3759f65c51`](https://explorer.testnet.chain.robinhood.com/address/0xf6f03a7796A3A9d9a97c817Cfeb74E3759f65c51) |
-| BuybackBurnTreasury | [`0x74989BF4e70f4886EeeaeD0a1d52cB698248b498`](https://explorer.testnet.chain.robinhood.com/address/0x74989BF4e70f4886EeeaeD0a1d52cB698248b498) |
-| PlanetTerritory | [`0xA10Fdd2EFc21B4AbA2E30013A76EeAa1bE067639`](https://explorer.testnet.chain.robinhood.com/address/0xA10Fdd2EFc21B4AbA2E30013A76EeAa1bE067639) |
-| TerritoryMarketplace | [`0x75f9e415Eb337C27E2fC554EfF751832F67c621B`](https://explorer.testnet.chain.robinhood.com/address/0x75f9e415Eb337C27E2fC554EfF751832F67c621B) |
-| PlanetOps | [`0xc154115B0E1e6851A5f5aCce366f890fDaB19046`](https://explorer.testnet.chain.robinhood.com/address/0xc154115B0E1e6851A5f5aCce366f890fDaB19046) |
+| PWSIToken | [`0x80573fDA543d361C451e0f85b175f0AeA757d5ff`](https://explorer.testnet.chain.robinhood.com/address/0x80573fDA543d361C451e0f85b175f0AeA757d5ff) |
+| PWSIFaucet | [`0xBEcd392f6a303C29637Cc1b081A7F2F5B2483a1e`](https://explorer.testnet.chain.robinhood.com/address/0xBEcd392f6a303C29637Cc1b081A7F2F5B2483a1e) |
+| RevenueTreasury | [`0x7C4083a83e8226A1149377b3Bd6499788257dA6b`](https://explorer.testnet.chain.robinhood.com/address/0x7C4083a83e8226A1149377b3Bd6499788257dA6b) |
+| RewardPool | [`0x2490c8eee6d32864FE55275512E6cC5abF1A39F7`](https://explorer.testnet.chain.robinhood.com/address/0x2490c8eee6d32864FE55275512E6cC5abF1A39F7) |
+| DailyDraw | [`0xe29B76FbC21D834968BA724AC26f20D2EC5312A5`](https://explorer.testnet.chain.robinhood.com/address/0xe29B76FbC21D834968BA724AC26f20D2EC5312A5) |
+| PlanetTerritory | [`0x60E586dBb1618cB3b96c800B39f8Ddb5E1e77554`](https://explorer.testnet.chain.robinhood.com/address/0x60E586dBb1618cB3b96c800B39f8Ddb5E1e77554) |
+| TerritoryMarketplace | [`0x9F27149781327d391E30B902e5F015665d5559e6`](https://explorer.testnet.chain.robinhood.com/address/0x9F27149781327d391E30B902e5F015665d5559e6) |
+| PlanetOps | [`0x681FB69C99351F8C224092fc2B2D618429D12529`](https://explorer.testnet.chain.robinhood.com/address/0x681FB69C99351F8C224092fc2B2D618429D12529) |
 
-The NFT metadata base URI is set to `https://planet-wars-si.vercel.app/api/metadata/`. If the app ends up on a different domain, the owner can change it with `PlanetTerritory.setBaseURI`.
+The v1 suite (token `0xd3B1…Ac08`, territory `0xA10F…7639`, BuybackBurnTreasury, etc.) is **abandoned**. The app no longer reads it, and v1 test balances and plots do not carry over.
 
-The web app runs at **https://planet-wars-si.vercel.app** on Vercel, built from `main`. Production env vars are set in the Vercel project. Off-chain SI state lives in Supabase, with the schema from `supabase/migrations` and RLS enabled. The daily cron calls `/api/si/tick`.
+The NFT metadata base URI is `https://planet-wars-si.vercel.app/api/metadata/` and `contractURI` is `https://planet-wars-si.vercel.app/api/metadata/contract` (owner-updatable).
 
-`scripts/smoke-testnet.sh` re-runs the live smoke test: faucet, claim, upgrade, mission, list, and a buy from a throwaway wallet.
+The web app runs at **https://planet-wars-si.vercel.app** on Vercel, built from `main`. Off-chain SI and rewards state lives in Supabase (`supabase/migrations`, RLS on, public read). The daily cron calls `/api/si/tick`.
 
-**Note on block numbers.** Robinhood Chain is Arbitrum-based, so Solidity's `block.number` returns the L1 block. `npm run contracts:sync` therefore takes the deploy block from the forge broadcast receipts, which carry L2 block numbers.
+`scripts/smoke-testnet.sh` re-runs the live smoke test (faucet, claim, upgrade, mission, list, buy by the operator wallet) and prints revenue/burn/pool totals.
+
+**Note on block numbers.** Robinhood Chain is Arbitrum-based, so Solidity's `block.number` returns the L1 block. `npm run contracts:sync` takes the deploy block from the forge broadcast receipts (L2 numbers), and `DailyDraw` uses ArbSys (`0x64`) `arbBlockNumber`/`arbBlockHash` for its target block.
 
 ## Local setup (anvil, end-to-end)
 
@@ -189,6 +262,7 @@ anvil --block-time 1 --port 8545 &
 # 2. deploy + seed (uses anvil's PUBLIC test mnemonic; local only)
 cd contracts
 DEPLOYER_PRIVATE_KEY=$(cast wallet private-key "test test test test test test test test test test test junk" 0) \
+OPERATOR_ADDRESS=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC \
 METADATA_BASE_URI=http://localhost:3000/api/metadata/ \
   forge script script/Deploy.s.sol --rpc-url anvil --broadcast
 forge script script/SeedLocal.s.sol --rpc-url anvil --broadcast   # claims, upgrades, listings, sales
@@ -202,17 +276,24 @@ cat > .env.local <<'ENV'
 NEXT_PUBLIC_CHAIN_ID=31337
 NEXT_PUBLIC_LOCAL_RPC_URL=http://127.0.0.1:8545
 NEXT_PUBLIC_ENABLE_DEV_WALLET=true
+RPC_URL=http://127.0.0.1:8545
+# anvil account #2 (public test key) as the local rewards operator
+OPERATOR_PRIVATE_KEY=$(cast wallet private-key "test test test test test test test test test test test junk" 2)
+LOTTERY_SECRET=local-dev
+CRON_SECRET=local-dev
 ENV
 npm run dev
 ```
 
-That derives anvil's well-known public account #0 from its public test mnemonic. Never use it on a real network.
+That derives anvil's well-known public accounts from its public test mnemonic. Never use them on a real network. Run the local dev server **without** `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` in the environment, otherwise local test epochs are written to your real database.
 
 With `NEXT_PUBLIC_ENABLE_DEV_WALLET=true` and chain 31337, the connect modal offers an **Anvil Dev Wallet** (anvil account #1). It lets you play the whole loop without a browser extension, and Playwright uses it:
 
 ```bash
 npm run e2e          # connect → faucet → claim plots → upgrade → buy → list → defend
 npm run screenshots  # writes screenshots/*.png
+node e2e/rewards-local.mjs  # 3 players, time travel, cron → lottery reveal → epoch publish → claims → airdrop
+node e2e/rewards-ui.mjs     # claim + airdrop UI with the dev wallet, rewards pages
 node e2e/live-shots.mjs  # screenshots of the deployed site (BASE_URL overrides)
 ```
 
@@ -223,13 +304,16 @@ node e2e/live-shots.mjs  # screenshots of the deployed site (BASE_URL overrides)
    ```bash
    cd contracts
    export DEPLOYER_PRIVATE_KEY=...        # or use `cast wallet import` + --account
+   export OPERATOR_ADDRESS=0x...          # backend publisher/lottery key (defaults to the deployer)
    export METADATA_BASE_URI=https://<your-domain>/api/metadata/
-   export RESISTANCE_FUND=0x...           # optional, defaults to the deployer
-   forge script script/Deploy.s.sol --rpc-url robinhood_testnet --broadcast \
+   export CONTRACT_URI=https://<your-domain>/api/metadata/contract
+   export AIRDROP_ALLOCATION=10000000000000000000000000   # optional (default 10M PWSI)
+   forge script script/Deploy.s.sol --rpc-url robinhood_testnet --broadcast --slow \
      --verify --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api/
    ```
    This writes `contracts/deployments/46630.json`.
 3. Run `npm run contracts:sync` and commit `src/lib/generated/deployments.ts`, or set the `NEXT_PUBLIC_*_ADDRESS` env vars instead.
+4. Fund the operator with a little ETH (each commit/close/reveal/publish costs ~0.000002 ETH at 0.01 gwei) and set `OPERATOR_PRIVATE_KEY` + `LOTTERY_SECRET` on the server.
 
 Until addresses exist for the target chain, the UI shows a "contracts not deployed on this network" banner and disables write actions.
 
@@ -253,19 +337,26 @@ See [`.env.example`](.env.example) for the full annotated list.
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | client | recommended | Reown/WalletConnect project ID. Without it, only injected and Coinbase wallets are offered. |
 | `NEXT_PUBLIC_SITE_URL` | client | prod | Canonical URL for metadata and OG tags |
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL`, `NEXT_PUBLIC_LOCAL_RPC_URL`, `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | client | no | RPC overrides |
-| `NEXT_PUBLIC_{TOKEN,FAUCET,TREASURY,TERRITORY,MARKETPLACE,OPS}_ADDRESS`, `NEXT_PUBLIC_DEPLOY_BLOCK` | client | no | Override the generated deployment |
+| `NEXT_PUBLIC_{TOKEN,FAUCET,TREASURY,REWARD_POOL,DAILY_DRAW,TERRITORY,MARKETPLACE,OPS}_ADDRESS`, `NEXT_PUBLIC_DEPLOY_BLOCK` | client | no | Override the generated deployment. No faucet address → faucet page/link hidden. |
+| `NEXT_PUBLIC_TOKEN_BUY_URL` | client | mainnet | Where to get the token when there is no faucet (e.g. its pons page) |
+| `NEXT_PUBLIC_ROBINHOOD_MAINNET_RPC_URL` | client | no | RPC override for chain 4663 |
 | `NEXT_PUBLIC_ENABLE_DEV_WALLET` | client | no | Local burner wallet. Only honoured on chain 31337. |
-| `RPC_URL` | server | no | Server-side RPC (for example, an Alchemy URL) for the indexer and signature checks |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | server | prod | Persistent SI state. If unset, an in-memory store is used. |
-| `CRON_SECRET` | server | prod | Protects `/api/si/tick` |
+| `RPC_URL` | server | no | Server-side RPC (for example, an Alchemy URL) for the indexer, signature checks and the rewards publisher |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | server | prod | Persistent SI + rewards state. If unset, an in-memory store is used. |
+| `CRON_SECRET` | server | prod | Protects `/api/si/tick` and `/api/rewards/airdrop` |
+| `OPERATOR_PRIVATE_KEY` | server (sensitive) | prod | Rewards operator: commits/reveals lottery rounds and publishes Merkle roots. Holds only gas ETH; it can publish within on-chain caps but can't move pool funds elsewhere. **Never the deployer/admin key.** |
+| `LOTTERY_SECRET` | server (sensitive) | prod | HMAC key for lottery seeds. Rotating it breaks reveals of already-committed rounds. |
+| `LOTTERY_ACTIVITY_DAYS` | server | no | Lottery eligibility window in UTC days (default 7) |
+| `REWARDS_EXCLUDE` | server | no | Comma-separated extra wallets excluded from leaderboard/lottery/airdrop |
 | `SI_SEED` | server | no | Changes the deterministic SI schedule |
 | `SI_LLM_API_KEY`, `SI_LLM_BASE_URL`, `SI_LLM_MODEL` | server | no | Optional LLM-written broadcasts (any OpenAI-compatible API) |
-| `DEPLOYER_PRIVATE_KEY`, `RESISTANCE_FUND`, `METADATA_BASE_URI` | forge only | deploy | Contract deployment. **Never commit.** |
+| `DEPLOYER_PRIVATE_KEY`, `OPERATOR_ADDRESS`, `METADATA_BASE_URI`, `CONTRACT_URI`, `AIRDROP_ALLOCATION` | forge (testnet) | deploy | `Deploy.s.sol`. **Never commit keys.** |
+| `TOKEN_ADDRESS`, `BURN_MODE`, `DEPLOY_OUT` | forge (mainnet) | deploy | `DeployMainnet.s.sol`: external token, `burn`/`dead`, optional output file for dry runs |
 
 ## Testing & quality gates
 
 ```bash
-npm run test:contracts   # forge test: 70 tests (unit, fuzz with 1,024 runs, invariants)
+npm run test:contracts   # forge test: 111 tests in 10 suites (unit, fuzz with 1,024 runs, 8 invariants)
 npm run contracts:fmt    # forge fmt --check
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint
@@ -275,7 +366,10 @@ npm run check            # all of the above
 
 The contract tests cover:
 - **Fuzz:** marketplace fee conservation (`price = sellerProceeds + fee` at any price and fee bps), the 1% fee never overcharging, sale settlement, faucet cooldown timing, burn accounting, shield costs and buyback output.
-- **Invariants:** token supply conservation, the treasury never retaining PWSI, recorded fees equal to a ghost tally, burn routes reconciling with `totalBurned`, and marketplace escrow equal to active listings.
+- **Fuzz (rewards):** burned + pooled == revenue at any amount and bps, epoch caps, `drawIndices` against a naive Fisher-Yates reference (distinct, in range, same output).
+- **Invariants:** token supply conservation, the treasury never retaining tokens, split sums to revenue, revenue equal to a ghost tally, pool conservation (funded − claimed == balance), outstanding allocations equal to unclaimed epoch totals, no double claims, and marketplace escrow equal to active listings.
+- **External tokens:** a plain ERC-20 without `burn()`, a USDT-style no-return token (full game in dead-address mode) and a fee-on-transfer token.
+- **End-to-end (anvil):** `e2e/rewards-local.mjs` runs the real cron/engine against local contracts: lottery commit → close → reveal, winners equal to on-chain `drawIndices`, Merkle publish, `claimMany`, double-claim rejection, airdrop publish + claim.
 
 A ready-to-use GitHub Actions workflow is in [`docs/ci.workflow.yml`](docs/ci.workflow.yml). Copy it to `.github/workflows/ci.yml` to enable it. It wasn't pushed there directly because the publishing token lacked the `workflow` scope.
 
@@ -284,6 +378,8 @@ A ready-to-use GitHub Actions workflow is in [`docs/ci.workflow.yml`](docs/ci.wo
 - Exact-amount ERC-20 approvals by default; there are no unlimited approvals.
 - The marketplace uses escrow, so listings can't go stale against moved NFTs. `buy` takes `maxPrice` to stop front-run repricing. `cancel` works while paused so users can always exit. Reentrancy is guarded and state is updated before transfers.
 - The fee is capped at 5% in the contract, and the default is 1%.
+- Rewards: the pool pays only from its own balance; each publish is capped on-chain (`epochCap`, per-slice caps) and can't touch the airdrop reserve; claims are one-per-(epoch, account) and go only to the account in the leaf (double-hashed leaves, so no second-preimage tricks). The operator key can publish roots and run the lottery, nothing else; the admin (deployer) can pause, change bounded params and queue a burn-rate change behind a 2-day timelock. A compromised operator could misallocate at most one epoch's cap per day: monitor `RewardsPublished` and pause if needed.
+- The lottery's trust limits are documented [above](#daily-lottery-100-winners-equal-shares-free-entry).
 - The faucet cooldown is enforced on-chain against `block.timestamp`.
 - Defense API: signature + on-chain ownership + timestamp skew + per-IP rate limits + DB uniqueness.
 - Supabase: RLS is enabled with public read only. Writes use the service-role key server-side (`server-only` imports).
