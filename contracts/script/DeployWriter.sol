@@ -29,7 +29,8 @@ abstract contract DeployWriter is Script {
         string memory json = vm.serializeAddress(k, "ops", address(g.ops));
         // DEPLOY_OUT overrides the output file (useful for dry runs that must not clobber a real record).
         string memory path = vm.envOr(
-            "DEPLOY_OUT", string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json")
+            "DEPLOY_OUT",
+            string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), ".json")
         );
         vm.writeJson(json, path);
 

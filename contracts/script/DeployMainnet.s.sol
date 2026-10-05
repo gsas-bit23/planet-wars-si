@@ -16,6 +16,9 @@ import {RevenueTreasury} from "../src/RevenueTreasury.sol";
 ///   BURN_MODE             (optional) "burn" → token.burn() (token must implement it, e.g. pons V2 tokens
 ///                         are ERC20Burnable) · "dead" → transfer to 0x…dEaD (default; works with any ERC-20).
 ///   METADATA_BASE_URI, CONTRACT_URI (required) production URLs.
+///   ADMIN_ADDRESS         (optional, recommended) final admin, e.g. a Safe multisig (must be a
+///                         contract). All admin roles move to it and the deployer renounces them;
+///                         the Safe must then call acceptOwnership() on territory, marketplace, ops.
 ///
 /// Usage (dry run first, without --broadcast):
 ///   forge script script/DeployMainnet.s.sol --rpc-url robinhood_mainnet
@@ -46,10 +49,16 @@ contract DeployMainnet is DeployWriter {
             contractURI: vm.envString("CONTRACT_URI"),
             burnMode: burnMode
         });
+        require(p.operator != deployer, "OPERATOR_ADDRESS must differ from the deployer");
+        address finalAdmin = vm.envOr("ADMIN_ADDRESS", address(0));
+        if (finalAdmin != address(0)) {
+            require(finalAdmin.code.length > 0, "ADMIN_ADDRESS must be a contract (Safe) on this chain");
+        }
         uint256 startBlock = block.number;
 
         vm.startBroadcast(pk);
         g = DeployLib.deployGame(IERC20(token), p);
+        if (finalAdmin != address(0)) DeployLib.handOver(g, deployer, finalAdmin);
         vm.stopBroadcast();
 
         _write(token, address(0), g, deployer, p.operator, startBlock);

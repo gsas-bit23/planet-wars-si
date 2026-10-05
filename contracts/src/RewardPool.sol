@@ -6,6 +6,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title RewardPool — Merkle distributor for daily leaderboard/lottery rewards and airdrops
 /// @notice Holds the player share of game revenue (sent by RevenueTreasury) plus a separate airdrop
@@ -16,6 +17,9 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 ///          - A rewards epoch can never allocate more than `epochBudgetBps` of the currently
 ///            *unallocated* reward balance, so payouts are always capped by what the pool holds.
 ///          - The leaderboard / lottery amounts of an epoch must respect `lotteryBps`.
+///          - Rewards epochs are strictly increasing UTC days and at most MAX_PUBLISH_LAG_DAYS old, so
+///            the publisher cannot release a backlog of past days in one burst: at most one epoch per
+///            day can be published (plus up to MAX_PUBLISH_LAG_DAYS catch-up days once).
 ///          - Airdrop epochs draw only from `airdropAvailable`, never from game revenue.
 ///          - Each (epoch, account) can claim once; unclaimed amounts return to their bucket after
 ///            `CLAIM_WINDOW`.
@@ -31,6 +35,8 @@ contract RewardPool is AccessControl, ReentrancyGuard {
     uint256 public constant CLAIM_WINDOW = 30 days;
     /// @dev Airdrop epoch ids live in their own namespace above every possible day number.
     uint256 public constant AIRDROP_EPOCH_BASE = 1_000_000_000;
+    /// @notice A rewards epoch (UTC day) may be published at most this many days after it.
+    uint256 public constant MAX_PUBLISH_LAG_DAYS = 3;
 
     uint16 public constant MIN_EPOCH_BUDGET_BPS = 100; // 1% of unallocated rewards / epoch
     uint16 public constant MAX_EPOCH_BUDGET_BPS = 5_000; // 50%
@@ -182,7 +188,11 @@ contract RewardPool is AccessControl, ReentrancyGuard {
         uint32 recipients,
         string calldata uri
     ) external onlyRole(PUBLISHER_ROLE) {
-        if (epochId == 0 || epochId >= AIRDROP_EPOCH_BASE || epochId > block.timestamp / 1 days) {
+        uint256 today = block.timestamp / 1 days;
+        if (
+            epochId == 0 || epochId >= AIRDROP_EPOCH_BASE || epochId > today || epochId <= lastRewardsEpoch
+                || epochId + MAX_PUBLISH_LAG_DAYS < today
+        ) {
             revert BadEpochId(epochId);
         }
         uint256 total = leaderboardTotal + lotteryTotal;
@@ -193,7 +203,7 @@ contract RewardPool is AccessControl, ReentrancyGuard {
         if (lotteryTotal > lotCap || leaderboardTotal > lbCap) revert SplitViolated();
         _publish(epochId, Kind.Rewards, root, total, leaderboardTotal, lotteryTotal, recipients, uri);
         totalRewardsAllocated += total;
-        if (epochId > lastRewardsEpoch) lastRewardsEpoch = epochId;
+        lastRewardsEpoch = epochId;
     }
 
     /// @notice Publish an airdrop epoch funded from `airdropAvailable`.
@@ -228,10 +238,10 @@ contract RewardPool is AccessControl, ReentrancyGuard {
             kind: kind,
             swept: false,
             publishedAt: uint64(block.timestamp),
-            total: uint128(total),
+            total: SafeCast.toUint128(total),
             claimed: 0,
-            leaderboardTotal: uint128(lb),
-            lotteryTotal: uint128(lot),
+            leaderboardTotal: SafeCast.toUint128(lb),
+            lotteryTotal: SafeCast.toUint128(lot),
             recipients: recipients
         });
         _epochIds.push(epochId);

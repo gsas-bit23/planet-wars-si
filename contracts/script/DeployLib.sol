@@ -71,6 +71,34 @@ library DeployLib {
         }
     }
 
+    /// @notice Move every admin power from the deployer (`msg.sender` context) to `newAdmin`
+    ///         (e.g. a Safe multisig). AccessControl roles are granted to `newAdmin` and renounced
+    ///         by the deployer in the same run; Ownable2Step contracts get a pending transfer that
+    ///         `newAdmin` must complete with `acceptOwnership()` (until then the deployer stays owner).
+    ///         The operator's roles (PUBLISHER / OPERATOR) are not touched.
+    function handOver(Game memory g, address deployer, address newAdmin) internal {
+        require(newAdmin != address(0) && newAdmin != deployer, "bad newAdmin");
+        bytes32 adminRole = 0x00; // DEFAULT_ADMIN_ROLE
+
+        g.treasury.grantRole(adminRole, newAdmin);
+        g.treasury.grantRole(g.treasury.KEEPER_ROLE(), newAdmin);
+        g.treasury.renounceRole(g.treasury.KEEPER_ROLE(), deployer);
+        g.treasury.renounceRole(adminRole, deployer);
+
+        g.pool.grantRole(adminRole, newAdmin);
+        if (g.pool.hasRole(g.pool.PUBLISHER_ROLE(), deployer)) {
+            g.pool.renounceRole(g.pool.PUBLISHER_ROLE(), deployer);
+        }
+        g.pool.renounceRole(adminRole, deployer);
+
+        g.draw.grantRole(adminRole, newAdmin);
+        g.draw.renounceRole(adminRole, deployer);
+
+        g.territory.transferOwnership(newAdmin);
+        g.marketplace.transferOwnership(newAdmin);
+        g.ops.transferOwnership(newAdmin);
+    }
+
     /// @notice Testnet: our own PWSI token + faucet + game, with a minted airdrop allocation.
     function deployTestnet(Params memory p, uint256 airdrop) internal returns (Suite memory s) {
         s.token = new PWSIToken(p.admin);

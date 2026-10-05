@@ -142,9 +142,55 @@ contract RewardPoolTest is BaseTest {
         vm.expectRevert(abi.encodeWithSelector(RewardPool.BadEpochId.selector, 5));
         pool.publishAirdrop(5, bytes32(uint256(1)), 1, 1, "");
         pool.publishRewards(today, bytes32(uint256(1)), 1, 1, 1, "");
-        vm.expectRevert(abi.encodeWithSelector(RewardPool.EpochExists.selector, today));
+        // Re-publishing (or any day not after the last published one) is rejected.
+        vm.expectRevert(abi.encodeWithSelector(RewardPool.BadEpochId.selector, today));
         pool.publishRewards(today, bytes32(uint256(1)), 1, 1, 1, "");
         vm.stopPrank();
+    }
+
+    /// @dev Regression: a publisher must not be able to release a backlog of past days in one burst
+    ///      (each epoch takes epochBudgetBps of what is left, so thousands of back-dated epochs would
+    ///      drain the pool).
+    function test_RevertWhen_BackdatedBeyondLag() public {
+        uint256 lag = pool.MAX_PUBLISH_LAG_DAYS();
+        vm.startPrank(operator);
+        vm.expectRevert(abi.encodeWithSelector(RewardPool.BadEpochId.selector, today - lag - 1));
+        pool.publishRewards(today - lag - 1, bytes32(uint256(1)), 1, 1, 1, "");
+        vm.expectRevert(abi.encodeWithSelector(RewardPool.BadEpochId.selector, 1));
+        pool.publishRewards(1, bytes32(uint256(1)), 1, 1, 1, "");
+        // The oldest allowed day works.
+        pool.publishRewards(today - lag, bytes32(uint256(1)), 1, 1, 1, "");
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_OutOfOrder() public {
+        vm.startPrank(operator);
+        pool.publishRewards(today - 1, bytes32(uint256(1)), 1, 1, 1, "");
+        vm.expectRevert(abi.encodeWithSelector(RewardPool.BadEpochId.selector, today - 2));
+        pool.publishRewards(today - 2, bytes32(uint256(1)), 1, 1, 1, "");
+        pool.publishRewards(today, bytes32(uint256(1)), 1, 1, 1, "");
+        assertEq(pool.lastRewardsEpoch(), today);
+        vm.stopPrank();
+    }
+
+    /// @notice Worst case for a compromised publisher key: the burst it can release right now is
+    ///         bounded by (MAX_PUBLISH_LAG_DAYS + 1) epochs, then one epoch per day.
+    function test_PublisherBurstIsBounded() public {
+        uint256 lag = pool.MAX_PUBLISH_LAG_DAYS();
+        uint256 startAvail = pool.rewardsAvailable();
+        vm.startPrank(operator);
+        for (uint256 d = today - lag; d <= today; ++d) {
+            uint256 cap = pool.epochCap();
+            (uint256 lb, uint256 lot) = pool.splitFor(cap);
+            pool.publishRewards(d, bytes32(uint256(d)), lb, lot, 1, "");
+        }
+        uint256 cap2 = pool.epochCap();
+        (uint256 lb2, uint256 lot2) = pool.splitFor(cap2);
+        vm.expectRevert(abi.encodeWithSelector(RewardPool.BadEpochId.selector, today));
+        pool.publishRewards(today, bytes32(uint256(7)), lb2, lot2, 1, "");
+        vm.stopPrank();
+        // 4 epochs at 20% each leave 0.8^4 = 40.96% unallocated.
+        assertApproxEqRel(pool.rewardsAvailable(), (startAvail * 4096) / 10_000, 1e12);
     }
 
     function test_RevertWhen_NotPublisher() public {
