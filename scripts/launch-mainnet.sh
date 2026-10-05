@@ -180,11 +180,19 @@ vset OPERATOR_PRIVATE_KEY MAINNET_OPERATOR_PRIVATE_KEY sensitive
 vset LOTTERY_SECRET LOTTERY_SECRET sensitive
 vset CRON_SECRET CRON_SECRET sensitive
 [[ -n "${TOKEN_BUY_URL:-}" ]] && vset NEXT_PUBLIC_TOKEN_BUY_URL TOKEN_BUY_URL plain
+# Mainnet DB is its own project; never take SUPABASE_URL from the ambient env (that may be testnet).
+MAINNET_SUPABASE_URL="${MAINNET_SUPABASE_URL:-https://sdrtbjwbxgzpdbpskyup.supabase.co}"
 if [[ -n "${SUPABASE_SERVICE_ROLE_KEY_MAINNET:-}" ]]; then
-  vset SUPABASE_URL SUPABASE_URL encrypted
+  # The key must belong to the mainnet project and the project must be stamped chain 4663.
+  stamp="$(curl -s "$MAINNET_SUPABASE_URL/rest/v1/app_meta?select=value&key=eq.chain_id" \
+    -H @<(printf 'apikey: %s\n' "$SUPABASE_SERVICE_ROLE_KEY_MAINNET") || true)"
+  [[ "$stamp" == '[{"value":"4663"}]' ]] || die "SUPABASE_SERVICE_ROLE_KEY_MAINNET is not valid for $MAINNET_SUPABASE_URL (or app_meta is not stamped 4663)"
+  ok "Supabase mainnet key valid; app_meta.chain_id = 4663"
+  export PWSI_SUPABASE_URL="$MAINNET_SUPABASE_URL"
+  vset SUPABASE_URL PWSI_SUPABASE_URL encrypted
   vset SUPABASE_SERVICE_ROLE_KEY SUPABASE_SERVICE_ROLE_KEY_MAINNET sensitive
 else
-  info "SUPABASE_SERVICE_ROLE_KEY_MAINNET not set: production keeps the in-memory store"
+  info "SUPABASE_SERVICE_ROLE_KEY_MAINNET not set: production keeps its current store setting"
 fi
 
 # ───────────────────────────── 6. Commit + push → deploy ─────────────────────────────

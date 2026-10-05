@@ -57,7 +57,7 @@ DRY_RUN=1 FORK_RPC=http://127.0.0.1:8547 TOKEN_ADDRESS=0x<pons token> scripts/la
 TOKEN_ADDRESS=0x<pons token> [ADMIN_ADDRESS=0x<Safe>] [TOKEN_BUY_URL=https://<pons page>] scripts/launch-mainnet.sh
 ```
 
-Inputs come from the environment: `MAINNET_DEPLOYER_PRIVATE_KEY`, `MAINNET_OPERATOR_PRIVATE_KEY` and `VERCEL_TOKEN`. `CRON_SECRET` / `LOTTERY_SECRET` (plus optionally `SUPABASE_SERVICE_ROLE_KEY_MAINNET`) are read from `~/.planet-wars-si.mainnet.env`. Keys are passed only through exported env, so they never appear in argv, and nothing secret is printed.
+Inputs come from the environment: `MAINNET_DEPLOYER_PRIVATE_KEY`, `MAINNET_OPERATOR_PRIVATE_KEY` and `VERCEL_TOKEN`. `CRON_SECRET` / `LOTTERY_SECRET` (plus optionally `SUPABASE_SERVICE_ROLE_KEY_MAINNET`, checked against the mainnet project and its `app_meta` 4663 stamp before use) are read from `~/.planet-wars-si.mainnet.env`. Keys are passed only through exported env, so they never appear in argv, and nothing secret is printed.
 
 The script runs these steps:
 
