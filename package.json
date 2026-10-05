@@ -15,7 +15,12 @@
     "e2e": "node e2e/flow.mjs",
     "screenshots": "node e2e/screenshots.mjs",
     "check": "npm run typecheck && npm run lint && npm run test:contracts && npm run build",
-    "preflight": "node scripts/preflight-mainnet.mjs"
+    "preflight": "node scripts/preflight-mainnet.mjs",
+    "network": "node scripts/select-network.mjs",
+    "predev": "node scripts/select-network.mjs",
+    "prebuild": "node scripts/select-network.mjs",
+    "pretypecheck": "node scripts/select-network.mjs",
+    "prelint": "node scripts/select-network.mjs"
   },
   "dependencies": {
     "@openzeppelin/merkle-tree": "^1.0.8",

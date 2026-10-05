@@ -1,6 +1,9 @@
 import type { Address } from "viem";
-import { deployments, type Deployment } from "./generated/deployments";
+import type { Deployment } from "./deployment-types";
+import { NETWORK_DEPLOYMENT } from "./generated/network";
 import { TARGET_CHAIN_ID } from "./chains";
+
+export type { Deployment };
 
 export * from "./generated/abis";
 
@@ -12,7 +15,7 @@ const env = (v: string | undefined) => (v && /^0x[0-9a-fA-F]{40}$/.test(v) ? (v 
  * Vercel without a code change.
  */
 function resolve(): Deployment | null {
-  const base = deployments[TARGET_CHAIN_ID];
+  const base = NETWORK_DEPLOYMENT;
   const o = {
     token: env(process.env.NEXT_PUBLIC_TOKEN_ADDRESS),
     faucet: env(process.env.NEXT_PUBLIC_FAUCET_ADDRESS),
@@ -54,7 +57,7 @@ export const faucetAddress = addresses?.faucet ?? undefined;
  * (NEXT_PUBLIC_TOKEN_BUY_URL, e.g. the token's pons launchpad page). null → hide the CTA.
  */
 export const getPwsiLink: { href: string; label: string; external: boolean } | null = hasFaucet
-  ? { href: "/faucet", label: "Claim free test PWSI", external: false }
+  ? { href: "/faucet", label: "Claim PWSI from the faucet", external: false }
   : process.env.NEXT_PUBLIC_TOKEN_BUY_URL
     ? { href: process.env.NEXT_PUBLIC_TOKEN_BUY_URL, label: "Get PWSI", external: true }
     : null;

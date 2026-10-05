@@ -7,3 +7,5 @@ create table if not exists public.app_meta (
 );
 alter table public.app_meta enable row level security;
 -- No public policies: only the service role (server) reads/writes this table.
+revoke all on public.app_meta from anon, authenticated;
+grant all on public.app_meta to service_role;

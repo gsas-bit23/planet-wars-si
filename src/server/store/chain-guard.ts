@@ -16,7 +16,8 @@ export function assertStoreChain(client: SupabaseClient): Promise<void> {
     const want = String(TARGET_CHAIN_ID);
     const { data, error } = await client.from("app_meta").select("value").eq("key", "chain_id").limit(1);
     if (error) {
-      if (/app_meta/.test(error.message)) {
+      // Only a missing table is tolerated (older databases); permission or network errors fail closed.
+      if (error.code === "42P01" || error.code === "PGRST205" || /could not find the table/i.test(error.message)) {
         console.warn("[store] app_meta table missing; chain guard skipped. Apply supabase/migrations.");
         return;
       }

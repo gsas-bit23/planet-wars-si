@@ -341,7 +341,8 @@ async function publishDay(day: number, snap: Snapshot, log: Log) {
  */
 export async function runRewardsTick(): Promise<{ ok: boolean; log: string[]; error?: string }> {
   const log: string[] = [];
-  if (!addresses) return { ok: false, log, error: "contracts not deployed" };
+  // Pre-launch: nothing on chain yet, so there is nothing to commit or publish. Not an error.
+  if (!addresses) return { ok: true, log: ["skipped: contracts not deployed (pre-launch)"] };
   if (!canPublish()) return { ok: false, log, error: "OPERATOR_PRIVATE_KEY / LOTTERY_SECRET not configured" };
   try {
     const snap = await getChainSnapshot({ fresh: true });

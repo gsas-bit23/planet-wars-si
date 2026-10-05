@@ -53,3 +53,5 @@ next-env.d.ts
 /contracts/broadcast/**/run-[0-9]*.json
 /contracts/broadcast/**/*.lock
 contracts/deployments/dryrun-*.json
+/src/lib/generated/network.ts
+/src/lib/generated/faucet-body.ts

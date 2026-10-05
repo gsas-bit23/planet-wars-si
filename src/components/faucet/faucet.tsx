@@ -46,7 +46,7 @@ export function Faucet() {
   const nextMs = nextAt ? Number(nextAt) * 1000 : 0;
   const ready = isConnected && nextMs <= now;
   const needsGas = eth !== undefined && eth.value === 0n;
-  const gasFaucets = GAS_FAUCETS[targetChain.id] ?? [];
+  const gasFaucets = GAS_FAUCETS;
 
   async function claim() {
     if (!faucetAddress) return;

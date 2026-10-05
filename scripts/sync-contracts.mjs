@@ -6,7 +6,7 @@
  *
  * Reads  contracts/out/<Name>.sol/<Name>.json   (requires `forge build`)
  *        contracts/deployments/<chainId>.json    (written by script/Deploy.s.sol)
- * Writes src/lib/generated/abis.ts and src/lib/generated/deployments.ts (both committed so
+ * Writes src/lib/generated/abis.ts and src/lib/generated/deployments.json (both committed so
  * Vercel builds do not need Foundry).
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
@@ -78,10 +78,7 @@ if (existsSync(deploymentsDir)) {
     };
   }
 }
-const dep =
-  header +
-  `import type { Address } from "viem";\n\n` +
-  `export type Deployment = {\n  chainId: number;\n  deployBlock: number;\n  operator: Address;\n  deployer: Address;\n  token: Address;\n  /** null when the chain has no faucet (mainnet: token launched externally). */\n  faucet: Address | null;\n  treasury: Address;\n  rewardPool: Address;\n  dailyDraw: Address;\n  territory: Address;\n  marketplace: Address;\n  ops: Address;\n};\n\n` +
-  `export const deployments: Record<number, Deployment> = ${JSON.stringify(deployments, null, 2)};\n`;
-writeFileSync(join(target, "deployments.ts"), dep);
+// All chains' records (testnet history included) live in a JSON file that the app never imports
+// directly: scripts/select-network.mjs copies only the build's target chain into network.ts.
+writeFileSync(join(target, "deployments.json"), JSON.stringify(deployments, null, 2) + "\n");
 console.log(`Synced ${Object.keys(CONTRACTS).length} ABIs, deployments for chains: ${Object.keys(deployments).join(", ") || "none"}`);

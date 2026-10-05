@@ -1,18 +1,15 @@
 import type { Metadata } from "next";
-import { PageHeader } from "@/components/ui/page-header";
 import { notFound } from "next/navigation";
-import { Faucet } from "@/components/faucet/faucet";
-import { hasFaucet } from "@/lib/contracts";
+import { NETWORK_HAS_FAUCET } from "@/lib/generated/network";
+// Generated per network: the testnet faucet page, or null (mainnet) so its copy is never bundled.
+import FaucetPageBody from "@/lib/generated/faucet-body";
 
-export const metadata: Metadata = { title: "Faucet", description: "Claim free test PWSI every 24 hours." };
+export const metadata: Metadata = NETWORK_HAS_FAUCET
+  ? { title: "Faucet", description: "Claim free test PWSI every 24 hours." }
+  : { title: "Not found" };
 
 export default function FaucetPage() {
   // Mainnet has no faucet: the game token is launched externally (pons launchpad).
-  if (!hasFaucet) notFound();
-  return (
-    <>
-      <PageHeader eyebrow="Testnet faucet · rate-limited per wallet" title={<>Free <span className="font-serif font-normal italic text-ion">ammunition.</span></>} description="Claim test PWSI once every 24 hours per wallet. Test tokens have no monetary value. You'll also need a little testnet ETH for gas." />
-      <Faucet />
-    </>
-  );
+  if (!FaucetPageBody) notFound();
+  return <FaucetPageBody />;
 }
