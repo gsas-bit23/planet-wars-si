@@ -2,11 +2,11 @@
 
 > A rogue superintelligence (the **SI**, signing as `SI//OVERMIND`) has annexed the solar system. Claim it back one plot at a time.
 
-Planet Wars SI is an on-chain territory game built for **Robinhood Chain Testnet**. The eight planets are split into territory NFTs that you claim with the game token **$PWSI**. Players fortify plots, trade them peer-to-peer and defend worlds against the SI's daily attacks. All game revenue is split on arrival: **10% burned, 90% to a reward pool** that pays a daily top-100 leaderboard and a daily lottery for active players, claimed with Merkle proofs.
+Planet Wars SI is an on-chain territory game for **Robinhood Chain**. It ran its public test on Robinhood Chain Testnet, and production is now in the **mainnet pre-launch** state. The eight planets are split into territory NFTs that you claim with the game token **$PWSI**. Players fortify plots, trade them peer-to-peer and defend worlds against the SI's daily attacks. All game revenue is split on arrival: **10% burned, 90% to a reward pool** that pays a daily top-100 leaderboard and a daily lottery for active players, claimed with Merkle proofs.
 
-**Live:** <https://pwsi.site> (also <https://planet-wars-si.vercel.app>) · Robinhood Chain Testnet · Vercel · Supabase · [mainnet launch checklist](docs/MAINNET_LAUNCH.md)
+**Live:** <https://pwsi.site> (also <https://planet-wars-si.vercel.app>) · Robinhood Chain mainnet (4663) pre-launch: launching soon, no contracts yet · X: [@PlanetWSI](https://x.com/PlanetWSI) · [mainnet launch checklist](docs/MAINNET_LAUNCH.md) · one-command launch: `scripts/launch-mainnet.sh`
 
-*Working title. Testnet only: PWSI has no monetary value, and territories are in-game items. Rewards come only from game revenue already in the pool, are capped per day, and are never a promised return.*
+*Working title. PWSI is a game token and territories are in-game items, not financial products. Rewards come only from game revenue already in the pool, are capped per day, and are never a promised return.*
 
 | Landing | Planet detail |
 | --- | --- |
@@ -180,7 +180,7 @@ On Robinhood Chain **mainnet (4663)** the game token is **not deployed by this r
 
 **How the contracts handle it:** every game contract takes the token address as a constructor parameter (`DeployLib.deployGame(IERC20 token, …)`). The treasury burns with `token.burn()` (`BURN_MODE=burn`, for pons V2) or by transferring to `0x000000000000000000000000000000000000dEaD` (`BURN_MODE=dead`, the default; works with any ERC-20), and it keeps its own `totalBurned`. All transfers use SafeERC20. Tests cover a plain non-burnable token, a no-return-value token and a fee-on-transfer token (`ExternalToken.t.sol`, `RevenueTreasury.t.sol`).
 
-**Deploying the game on mainnet (when ready; not done). Follow [the checklist](docs/MAINNET_LAUNCH.md):**
+**Deploying the game on mainnet (when ready; not done).** Run `TOKEN_ADDRESS=0x… scripts/launch-mainnet.sh` (rehearse first with `DRY_RUN=1 FORK_RPC=…`; see [the checklist](docs/MAINNET_LAUNCH.md)). The manual equivalent:
 ```bash
 cd contracts
 export DEPLOYER_PRIVATE_KEY=...            # admin; consider a multisig as admin afterwards
@@ -224,9 +224,11 @@ Sources:
 - <https://docs.robinhood.com/chain/deploy-smart-contracts/>
 - <https://robinhood.com/us/en/support/articles/robinhood-chain-testnet/>
 
-**Fallback.** `NEXT_PUBLIC_CHAIN_ID=84532` switches the app to Base Sepolia (a `base_sepolia` RPC alias is also in `foundry.toml`). The default target is Robinhood Chain Testnet.
+**Fallback.** `NEXT_PUBLIC_CHAIN_ID=84532` switches the app to Base Sepolia (a `base_sepolia` RPC alias is also in `foundry.toml`). The default build target is Robinhood Chain mainnet (4663); set `NEXT_PUBLIC_CHAIN_ID=46630` for the testnet.
 
-## Live deployment: Robinhood Chain Testnet (46630)
+## Testnet deployment record: Robinhood Chain Testnet (46630)
+
+These are kept for reference. Production (pwsi.site) no longer builds for the testnet, so none of this appears on the public site. To run a testnet build, set `NEXT_PUBLIC_CHAIN_ID=46630` (Vercel preview deployments do this).
 
 **v2 (current, rewards economy)**: deployed 2026-10-05 from `0x6F9AC937d6621226943FD3bB9a5B7e33EC81a616`; first deploy transaction in L2 block 128943055. All eight contracts are source-verified on Blockscout. Rewards operator (publisher + lottery): `0x8cfDeb78ac72179245603b09b63cB71e4dB07094`.
 
@@ -315,7 +317,7 @@ node e2e/live-shots.mjs  # screenshots of the deployed site (BASE_URL overrides)
      --verify --verifier blockscout --verifier-url https://explorer.testnet.chain.robinhood.com/api/
    ```
    This writes `contracts/deployments/46630.json`.
-3. Run `npm run contracts:sync` and commit `src/lib/generated/deployments.ts`, or set the `NEXT_PUBLIC_*_ADDRESS` env vars instead.
+3. Run `npm run contracts:sync` and commit `src/lib/generated/deployments.json`, or set the `NEXT_PUBLIC_*_ADDRESS` env vars instead.
 4. Fund the operator with a little ETH (each commit/close/reveal/publish costs ~0.000002 ETH at 0.01 gwei) and set `OPERATOR_PRIVATE_KEY` + `LOTTERY_SECRET` on the server.
 
 Until addresses exist for the target chain, the UI shows a "contracts not deployed on this network" banner and disables write actions.
@@ -324,7 +326,7 @@ Until addresses exist for the target chain, the UI shows a "contracts not deploy
 
 `vercel.json` configures the Next.js build and a **daily cron** (`00:05 UTC`) hitting `/api/si/tick`. Vercel sends `Authorization: Bearer $CRON_SECRET`.
 
-1. Import the repo in Vercel and set the env vars below. At minimum, set `NEXT_PUBLIC_CHAIN_ID=46630` and `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`.
+1. Import the repo in Vercel and set the env vars below. At minimum, set `NEXT_PUBLIC_CHAIN_ID` (`4663` production, `46630` testnet preview) and `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`.
 2. Optionally create a Supabase project and apply `supabase/migrations/*.sql` with `supabase db push` or the SQL editor. Then set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
 3. Set `METADATA_BASE_URI` at contract deploy time to `https://<vercel-domain>/api/metadata/`.
 
@@ -336,7 +338,7 @@ See [`.env.example`](.env.example) for the full annotated list.
 
 | Variable | Scope | Required | Purpose |
 | --- | --- | --- | --- |
-| `NEXT_PUBLIC_CHAIN_ID` | client | yes | `46630` Robinhood testnet (default), `31337` anvil, `84532` Base Sepolia fallback |
+| `NEXT_PUBLIC_CHAIN_ID` | client | yes | `4663` Robinhood Chain mainnet (default), `46630` Robinhood testnet, `31337` anvil, `84532` Base Sepolia fallback. Selected at build time by `scripts/select-network.mjs`, which embeds only that chain's config and deployment; with no deployment the site shows the pre-launch state |
 | `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | client | recommended | Reown/WalletConnect project ID. Without it, only injected and Coinbase wallets are offered. |
 | `NEXT_PUBLIC_SITE_URL` | client | prod | Canonical URL for metadata and OG tags |
 | `NEXT_PUBLIC_ROBINHOOD_RPC_URL`, `NEXT_PUBLIC_LOCAL_RPC_URL`, `NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL` | client | no | RPC overrides |

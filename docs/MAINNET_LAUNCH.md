@@ -1,6 +1,6 @@
 # Mainnet launch checklist: Robinhood Chain (4663)
 
-Status (2026-10-05): **ready to rehearse, nothing deployed on mainnet.** The app runs on Robinhood Chain Testnet (46630) at https://pwsi.site, and https://planet-wars-si.vercel.app still works too.
+Status (2026-10-05): **production is in the mainnet pre-launch state, and nothing is deployed on mainnet.** https://pwsi.site is built for Robinhood Chain (4663) with no contracts. It shows "Launching soon", the lore and planets are browsable, every action is disabled with a clear note, there are no testnet traces, and it links to [@PlanetWSI](https://x.com/PlanetWSI). The testnet (46630) records stay in the repo (`contracts/deployments/46630.json`, `src/lib/generated/deployments.json`). Preview deployments still build for 46630.
 
 On mainnet the game token is **not** deployed by this repo. It is launched on the **pons** launchpad, and `contracts/script/DeployMainnet.s.sol` deploys everything else around it: treasury, reward pool, daily draw, territory NFT, marketplace and ops. It deploys **no token and no faucet**.
 
@@ -45,6 +45,38 @@ On mainnet the game token is **not** deployed by this repo. It is launched on th
 | 10 | **Reown (WalletConnect) allowlist** | Add `pwsi.site` and `www.pwsi.site` to the project's allowed domains. |
 
 ## 3. Launch sequence
+
+### One command: `scripts/launch-mainnet.sh`
+
+```bash
+# rehearsal: every step except the mainnet broadcast, on an anvil mainnet fork
+anvil --fork-url https://rpc.mainnet.chain.robinhood.com --chain-id 4663 --port 8547 &
+DRY_RUN=1 FORK_RPC=http://127.0.0.1:8547 TOKEN_ADDRESS=0x<pons token> scripts/launch-mainnet.sh
+
+# the launch (asks you to type "launch" before broadcasting)
+TOKEN_ADDRESS=0x<pons token> [ADMIN_ADDRESS=0x<Safe>] [TOKEN_BUY_URL=https://<pons page>] scripts/launch-mainnet.sh
+```
+
+Inputs come from the environment: `MAINNET_DEPLOYER_PRIVATE_KEY`, `MAINNET_OPERATOR_PRIVATE_KEY` and `VERCEL_TOKEN`. `CRON_SECRET` / `LOTTERY_SECRET` (plus optionally `SUPABASE_SERVICE_ROLE_KEY_MAINNET`) are read from `~/.planet-wars-si.mainnet.env`. Keys are passed only through exported env, so they never appear in argv, and nothing secret is printed.
+
+The script runs these steps:
+
+1. Check that the RPC is chain 4663, and refuse a "live" run against an anvil fork.
+2. Validate the token: it must have code and 18 decimals; it reports the symbol, name and supply. It simulates `burn(0)` and sets `BURN_MODE=burn` for V2 tokens (`dead` otherwise, unless you force a mode).
+3. Derive the deployer and operator addresses from the keys and require them to differ. Check them against the expected addresses, report balance and nonce, and enforce minimums (deployer ≥ 0.0008 ETH, operator ≥ 0.0005 ETH).
+4. Simulate `DeployMainnet`, then deploy with `--broadcast --slow --verify --verifier blockscout`.
+5. Run `npm run contracts:sync` and check that `select-network` now finds the 4663 deployment.
+6. Run `npm run preflight`, which stops the launch on any failure.
+7. Set the Vercel **production** env: `NEXT_PUBLIC_CHAIN_ID=4663`, `OPERATOR_PRIVATE_KEY` (from `MAINNET_OPERATOR_PRIVATE_KEY`, sensitive), `LOTTERY_SECRET`, `CRON_SECRET`, `NEXT_PUBLIC_TOKEN_BUY_URL`, and Supabase if provided.
+8. Commit the deployment records and push to `main`, which triggers the Vercel deploy.
+9. Wait for the deployment to be READY, then check live `/api/health`: chain 4663, rpcMatches, contractsDeployed, no faucet.
+
+In `DRY_RUN=1` mode the script broadcasts **to the fork only** and skips verification, Vercel, git and live checks, printing them instead. On exit it restores the generated files and deletes `contracts/deployments/4663.json` and the 4663 broadcast/cache folders. Dry run of 2026-10-05 with the pons V2 token Vano `0x3fd71e7e…381a`: all steps passed (`BURN_MODE=burn`, 18 transactions, preflight green). The log is in [`docs/launch-dryrun.log`](launch-dryrun.log).
+
+`scripts/vercel-env.mjs` (`list | set KEY FROM_ENV [type] | rm KEY | wait <sha>`) is the helper the script uses for Vercel. Values come from env var names, never from argv.
+
+### Manual sequence (what the script does)
+
 
 All commands run from `contracts/`. Keys go in your shell only; never commit them. Steps marked **(irreversible)** spend real ETH.
 

@@ -1,0 +1,87 @@
+
+== DRY RUN against fork http://127.0.0.1:8547 (nothing is sent to mainnet)
+  OK   RPC chain id 4663, block 80400136
+
+== 1. Token
+  OK   Vano (VANO) at 0x3fd71E7e860814b9aA89ca121dc68E1e113A381A · 18 decimals · supply 1000000000.000000000000000000 
+  ..   note: symbol is 'VANO' (expected PWSI for the real launch)
+
+== 2. Wallets
+  ..   deployer 0xAB9F26b5A8898193429D55cBF7492B748EdE627D  balance 0.002055299568049649 ETH  nonce 18
+  ..   operator 0xdB9Cf47053e0EF3af68E6870f282E7574E2De3E0  balance 0.003299147653952000 ETH  nonce 2
+  OK   balances above minimums
+  OK   CRON_SECRET / LOTTERY_SECRET present (not printed)
+  ..   no ADMIN_ADDRESS: the deployer stays admin (hand over to a Safe later)
+  OK   burn() present → BURN_MODE=burn
+
+== 3a. Simulate DeployMainnet (no broadcast)
+  ..   Estimated total gas used for script: 13997847
+  ..   Estimated amount required: 0.000050775608235789 ETH
+  OK   simulation passed
+
+== 3b. Deploy (--broadcast to the fork)
+  OK   deployed: 18 broadcast entries
+  ..   token        0x3fd71E7e860814b9aA89ca121dc68E1e113A381A
+  ..   treasury     0x295a9526e3C2F00AFFF9e483800cdE37f5E7C509
+  ..   rewardPool   0x965603fd0170a349B57da9eAa9F9770c6D642Daf
+  ..   dailyDraw    0xeaC626a0444B33284b5b233f596332155E5B3C70
+  ..   territory    0x62cB9BEc71F33d1C7Deb713295a0892C4Ac26446
+  ..   marketplace  0xD1F56D7a3Bac705CB066e691cee618c56C8Bab80
+  ..   ops          0x50419566E0423aEb540E4062F1134d3a9A81fF51
+
+== 4. Sync into the web app + preflight
+Synced 8 ABIs, deployments for chains: 4663, 31337, 46630
+  OK   src/lib/generated/deployments.json now has chain 4663
+PASS  RPC chain id is 4663  (got 4663)
+PASS  deployment file chain id
+PASS  no faucet on mainnet
+PASS  token has code  (0x3fd71E7e860814b9aA89ca121dc68E1e113A381A)
+PASS  treasury has code  (0x295a9526e3C2F00AFFF9e483800cdE37f5E7C509)
+PASS  rewardPool has code  (0x965603fd0170a349B57da9eAa9F9770c6D642Daf)
+PASS  dailyDraw has code  (0xeaC626a0444B33284b5b233f596332155E5B3C70)
+PASS  territory has code  (0x62cB9BEc71F33d1C7Deb713295a0892C4Ac26446)
+PASS  marketplace has code  (0xD1F56D7a3Bac705CB066e691cee618c56C8Bab80)
+PASS  ops has code  (0x50419566E0423aEb540E4062F1134d3a9A81fF51)
+PASS  token has 18 decimals  (18)
+INFO  token symbol: VANO
+PASS  treasury.token() is the game token
+PASS  rewardPool.token() is the game token
+PASS  territory.token() is the game token
+PASS  marketplace.token() is the game token
+PASS  ops.token() is the game token
+PASS  treasury → rewardPool wiring
+PASS  territory pays the treasury
+PASS  marketplace pays the treasury
+PASS  ops pays the treasury
+INFO  burnMode: burn() (totalSupply decreases) · burnBps 1000
+PASS  token.burn() callable by the treasury
+PASS  ERC-2981: 1% to the treasury  (0x295a9526e3C2F00AFFF9e483800cdE37f5E7C509 100)
+PASS  contractURI points at the site  (https://pwsi.site/api/metadata/contract)
+PASS  planets registered
+PASS  DailyDraw uses ArbSys (L2 block numbers)
+PASS  operator set and separate from deployer  (0xdB9Cf47053e0EF3af68E6870f282E7574E2De3E0)
+PASS  operator can publish reward roots
+PASS  operator runs the lottery
+PASS  operator has ≥ 0.0005 ETH for gas  (0.003299147653952 ETH)
+WARN  ADMIN_ADDRESS not given: admin is the deployer EOA. A Safe multisig is strongly recommended on mainnet.
+INFO  airdrop allocation funded: 0
+INFO  https://www.pwsi.site/api/health → chain 46630, store supabase, faucet true
+WARN  site still serves chain 46630 (expected before the Vercel switch)
+
+all checks passed
+  OK   preflight passed
+
+== 5. Vercel production env
+  DRY  would run: vercel-env set NEXT_PUBLIC_CHAIN_ID (from $PWSI_CHAIN_ID, plain)
+  DRY  would run: vercel-env set OPERATOR_PRIVATE_KEY (from $MAINNET_OPERATOR_PRIVATE_KEY, sensitive)
+  DRY  would run: vercel-env set LOTTERY_SECRET (from $LOTTERY_SECRET, sensitive)
+  DRY  would run: vercel-env set CRON_SECRET (from $CRON_SECRET, sensitive)
+  DRY  would run: vercel-env set NEXT_PUBLIC_TOKEN_BUY_URL (from $TOKEN_BUY_URL, plain)
+  ..   SUPABASE_SERVICE_ROLE_KEY_MAINNET not set: production keeps the in-memory store
+
+== 6. Commit + push (Vercel auto-deploys main)
+  DRY  would run: git add src/lib/generated/deployments.json src/lib/generated/abis.ts contracts/deployments/4663.json contracts/broadcast/DeployMainnet.s.sol/4663/run-latest.json && git commit -m 'Launch on Robinhood Chain mainnet' && git push origin main
+  DRY  would run: node scripts/vercel-env.mjs wait <sha> && curl https://www.pwsi.site/api/health (expect chain 4663, contractsDeployed, faucet false)
+
+== DRY RUN complete: every step passed; nothing was sent to mainnet
+  ..   dry-run artifacts removed; generated files restored

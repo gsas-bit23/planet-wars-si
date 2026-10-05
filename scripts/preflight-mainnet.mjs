@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Read-only pre-launch checks for a deployed game suite. Sends no transactions.
 // Usage:
-//   CHAIN_ID=4663 [RPC_URL=...] [ADMIN_ADDRESS=0xSafe] [SITE_URL=https://pwsi.site] node scripts/preflight-mainnet.mjs
+//   CHAIN_ID=4663 [RPC_URL=...] [ADMIN_ADDRESS=0xSafe] [SITE_URL=https://pwsi.site] [HEALTH_URL=https://www.pwsi.site] node scripts/preflight-mainnet.mjs
 // Addresses come from contracts/deployments/<CHAIN_ID>.json (written by DeployMainnet.s.sol).
 import { readFileSync } from "node:fs";
 import { createPublicClient, http, parseAbi, formatEther, getAddress } from "viem";
@@ -9,6 +9,8 @@ import { createPublicClient, http, parseAbi, formatEther, getAddress } from "vie
 const chainId = Number(process.env.CHAIN_ID || 4663);
 const rpc = process.env.RPC_URL || (chainId === 4663 ? "https://rpc.mainnet.chain.robinhood.com" : "https://rpc.testnet.chain.robinhood.com");
 const site = (process.env.SITE_URL || "https://pwsi.site").replace(/\/$/, "");
+// Where to read /api/health (the apex currently redirects to www).
+const healthBase = (process.env.HEALTH_URL || site).replace(/\/$/, "");
 const admin = process.env.ADMIN_ADDRESS ? getAddress(process.env.ADMIN_ADDRESS) : null;
 const d = JSON.parse(readFileSync(new URL(`../contracts/deployments/${chainId}.json`, import.meta.url), "utf8"));
 const c = createPublicClient({ transport: http(rpc) });
@@ -106,11 +108,11 @@ if (admin) {
 console.log(`INFO  airdrop allocation funded: ${formatEther(await read(d.rewardPool, "airdropAvailable"))}`);
 
 try {
-  const h = await (await fetch(`${site}/api/health`)).json();
-  console.log(`INFO  ${site}/api/health → chain ${h.chain?.id}, store ${h.store}, faucet ${h.faucet}`);
+  const h = await (await fetch(`${healthBase}/api/health`)).json();
+  console.log(`INFO  ${healthBase}/api/health → chain ${h.chain?.id}, store ${h.store}, faucet ${h.faucet}`);
   if (h.chain?.id !== chainId) warn(`site still serves chain ${h.chain?.id} (expected before the Vercel switch)`);
 } catch {
-  warn(`could not reach ${site}/api/health`);
+  warn(`could not reach ${healthBase}/api/health`);
 }
 
 console.log(fails ? `\n${fails} check(s) failed` : "\nall checks passed");
