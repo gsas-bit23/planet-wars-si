@@ -14,7 +14,8 @@
     "contracts:sync": "node scripts/sync-contracts.mjs",
     "e2e": "node e2e/flow.mjs",
     "screenshots": "node e2e/screenshots.mjs",
-    "check": "npm run typecheck && npm run lint && npm run test:contracts && npm run build"
+    "check": "npm run typecheck && npm run lint && npm run test:contracts && npm run build",
+    "preflight": "node scripts/preflight-mainnet.mjs"
   },
   "dependencies": {
     "@openzeppelin/merkle-tree": "^1.0.8",

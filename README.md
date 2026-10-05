@@ -4,7 +4,7 @@
 
 Planet Wars SI is an on-chain territory game built for **Robinhood Chain Testnet**. The eight planets are split into territory NFTs that you claim with the game token **$PWSI**. Players fortify plots, trade them peer-to-peer and defend worlds against the SI's daily attacks. All game revenue is split on arrival: **10% burned, 90% to a reward pool** that pays a daily top-100 leaderboard and a daily lottery for active players, claimed with Merkle proofs.
 
-**Live:** <https://planet-wars-si.vercel.app> (Robinhood Chain Testnet · Vercel · Supabase)
+**Live:** <https://pwsi.site> (also <https://planet-wars-si.vercel.app>) · Robinhood Chain Testnet · Vercel · Supabase · [mainnet launch checklist](docs/MAINNET_LAUNCH.md)
 
 *Working title. Testnet only: PWSI has no monetary value, and territories are in-game items. Rewards come only from game revenue already in the pool, are capped per day, and are never a promised return.*
 
@@ -168,6 +168,8 @@ Season 1 has **not** been published yet. The snapshot time is the project owner'
 
 ## Mainnet: external token on the pons launchpad
 
+> **Launch checklist:** [docs/MAINNET_LAUNCH.md](docs/MAINNET_LAUNCH.md) covers what you need to provide (pons token, new deployer, separate operator, Safe multisig, new Supabase project), the exact command sequence, `npm run preflight`, the Vercel switch to chain 4663, rollback and incident steps, and the security self-review. Simulated against mainnet and rehearsed on a mainnet fork with a real pons V2 token: 30 transactions, 11.8M gas ≈ **0.00024 ETH** at 0.02 gwei.
+
 On Robinhood Chain **mainnet (4663)** the game token is **not deployed by this repo**. The project owner launches it on **pons** (pons.family / ponsfamily.com), and the game contracts are deployed around it. **Nothing has been deployed to mainnet.**
 
 **What pons produces (researched 2026-10-05):**
@@ -178,19 +180,20 @@ On Robinhood Chain **mainnet (4663)** the game token is **not deployed by this r
 
 **How the contracts handle it:** every game contract takes the token address as a constructor parameter (`DeployLib.deployGame(IERC20 token, …)`). The treasury burns with `token.burn()` (`BURN_MODE=burn`, for pons V2) or by transferring to `0x000000000000000000000000000000000000dEaD` (`BURN_MODE=dead`, the default; works with any ERC-20), and it keeps its own `totalBurned`. All transfers use SafeERC20. Tests cover a plain non-burnable token, a no-return-value token and a fee-on-transfer token (`ExternalToken.t.sol`, `RevenueTreasury.t.sol`).
 
-**Deploying the game on mainnet (when ready; not done):**
+**Deploying the game on mainnet (when ready; not done). Follow [the checklist](docs/MAINNET_LAUNCH.md):**
 ```bash
 cd contracts
 export DEPLOYER_PRIVATE_KEY=...            # admin; consider a multisig as admin afterwards
 export TOKEN_ADDRESS=0x...                 # the pons-launched token
 export OPERATOR_ADDRESS=0x...              # backend publisher key (separate from the admin)
+export ADMIN_ADDRESS=0x...                 # Safe multisig; receives all admin roles
 export BURN_MODE=burn                      # pons V2 (ERC20Burnable) · "dead" for anything else
-export METADATA_BASE_URI=https://<site>/api/metadata/ CONTRACT_URI=https://<site>/api/metadata/contract
+export METADATA_BASE_URI=https://pwsi.site/api/metadata/ CONTRACT_URI=https://pwsi.site/api/metadata/contract
 forge script script/DeployMainnet.s.sol --rpc-url robinhood_mainnet            # dry run first
 forge script script/DeployMainnet.s.sol --rpc-url robinhood_mainnet --broadcast --verify \
   --verifier blockscout --verifier-url https://robinhoodchain.blockscout.com/api/
 ```
-`DeployMainnet.s.sol` deploys everything **except the token and the faucet**, checks that `TOKEN_ADDRESS` has code, and in `burn` mode simulates `burn(0)` to refuse tokens without `burn()`. It writes `deployments/4663.json` with `faucet: 0x0`; `npm run contracts:sync` turns that into `faucet: null`, and the UI then **hides the faucet page and nav link** (`/faucet` returns 404). Set `NEXT_PUBLIC_TOKEN_BUY_URL` to the token's pons page to show a "Get PWSI" link instead. The airdrop allocation on mainnet must be funded by the owner with `RewardPool.fundAirdrop(amount)` (approve first). `Deploy.s.sol` refuses chain 4663.
+`DeployMainnet.s.sol` deploys everything **except the token and the faucet**. It checks that `TOKEN_ADDRESS` has code and 18 decimals, and that the operator differs from the deployer. In `burn` mode it simulates `burn(0)` to refuse tokens without `burn()`. With `ADMIN_ADDRESS` (a Safe) it hands every admin role to the Safe, the deployer renounces them, and the Safe then calls `acceptOwnership()` on territory, marketplace and ops. It writes `deployments/4663.json` with `faucet: 0x0`; `npm run contracts:sync` turns that into `faucet: null`, and the UI then **hides the faucet page and nav link** (`/faucet` returns 404). Set `NEXT_PUBLIC_TOKEN_BUY_URL` to the token's pons page to show a "Get PWSI" link instead. The airdrop allocation on mainnet must be funded by the owner with `RewardPool.fundAirdrop(amount)` (approve first). `Deploy.s.sol` refuses chain 4663.
 
 ## The SI (off-chain game engine)
 
@@ -240,9 +243,9 @@ Sources:
 
 The v1 suite (token `0xd3B1…Ac08`, territory `0xA10F…7639`, BuybackBurnTreasury, etc.) is **abandoned**. The app no longer reads it, and v1 test balances and plots do not carry over.
 
-The NFT metadata base URI is `https://planet-wars-si.vercel.app/api/metadata/` and `contractURI` is `https://planet-wars-si.vercel.app/api/metadata/contract` (owner-updatable).
+The NFT metadata base URI is `https://pwsi.site/api/metadata/` and `contractURI` is `https://pwsi.site/api/metadata/contract` (owner-updatable).
 
-The web app runs at **https://planet-wars-si.vercel.app** on Vercel, built from `main`. Off-chain SI and rewards state lives in Supabase (`supabase/migrations`, RLS on, public read). The daily cron calls `/api/si/tick`.
+The web app runs at **https://pwsi.site** (`www.pwsi.site` and **https://planet-wars-si.vercel.app** serve the same deployment) on Vercel, built from `main`. Off-chain SI and rewards state lives in Supabase (`supabase/migrations`, RLS on, public read). The daily cron calls `/api/si/tick`.
 
 `scripts/smoke-testnet.sh` re-runs the live smoke test (faucet, claim, upgrade, mission, list, buy by the operator wallet) and prints revenue/burn/pool totals.
 
@@ -351,12 +354,13 @@ See [`.env.example`](.env.example) for the full annotated list.
 | `SI_SEED` | server | no | Changes the deterministic SI schedule |
 | `SI_LLM_API_KEY`, `SI_LLM_BASE_URL`, `SI_LLM_MODEL` | server | no | Optional LLM-written broadcasts (any OpenAI-compatible API) |
 | `DEPLOYER_PRIVATE_KEY`, `OPERATOR_ADDRESS`, `METADATA_BASE_URI`, `CONTRACT_URI`, `AIRDROP_ALLOCATION` | forge (testnet) | deploy | `Deploy.s.sol`. **Never commit keys.** |
-| `TOKEN_ADDRESS`, `BURN_MODE`, `DEPLOY_OUT` | forge (mainnet) | deploy | `DeployMainnet.s.sol`: external token, `burn`/`dead`, optional output file for dry runs |
+| `TOKEN_ADDRESS`, `BURN_MODE`, `ADMIN_ADDRESS`, `DEPLOY_OUT` | forge (mainnet) | deploy | `DeployMainnet.s.sol`: external token, `burn`/`dead`, final Safe admin, optional output file for dry runs |
+| `NEXT_PUBLIC_OPERATOR_ADDRESS`, `NEXT_PUBLIC_DEPLOYER_ADDRESS` | client | no | Protocol wallets excluded from rewards, for an env-only chain switch (normally read from the deployment file) |
 
 ## Testing & quality gates
 
 ```bash
-npm run test:contracts   # forge test: 111 tests in 10 suites (unit, fuzz with 1,024 runs, 8 invariants)
+npm run test:contracts   # forge test: 115 tests in 11 suites (unit, fuzz with 1,024 runs, 8 invariants)
 npm run contracts:fmt    # forge fmt --check
 npm run typecheck        # tsc --noEmit
 npm run lint             # eslint
@@ -378,10 +382,11 @@ A ready-to-use GitHub Actions workflow is in [`docs/ci.workflow.yml`](docs/ci.wo
 - Exact-amount ERC-20 approvals by default; there are no unlimited approvals.
 - The marketplace uses escrow, so listings can't go stale against moved NFTs. `buy` takes `maxPrice` to stop front-run repricing. `cancel` works while paused so users can always exit. Reentrancy is guarded and state is updated before transfers.
 - The fee is capped at 5% in the contract, and the default is 1%.
-- Rewards: the pool pays only from its own balance; each publish is capped on-chain (`epochCap`, per-slice caps) and can't touch the airdrop reserve; claims are one-per-(epoch, account) and go only to the account in the leaf (double-hashed leaves, so no second-preimage tricks). The operator key can publish roots and run the lottery, nothing else; the admin (deployer) can pause, change bounded params and queue a burn-rate change behind a 2-day timelock. A compromised operator could misallocate at most one epoch's cap per day: monitor `RewardsPublished` and pause if needed.
+- Rewards: the pool pays only from its own balance; each publish is capped on-chain (`epochCap`, per-slice caps) and can't touch the airdrop reserve; claims are one-per-(epoch, account) and go only to the account in the leaf (double-hashed leaves, so no second-preimage tricks). The operator key can publish roots and run the lottery, nothing else; the admin (deployer) can pause, change bounded params and queue a burn-rate change behind a 2-day timelock. Rewards epochs must be strictly increasing UTC days and at most 3 days old (`MAX_PUBLISH_LAG_DAYS`), so a compromised operator can release at most 4 capped epochs at once (≤ 59% of unallocated rewards at the default 20% budget), then one per day, until the admin revokes its role. Published roots cannot be revoked: monitor `EpochPublished`. Full self-review and residual risks: [docs/MAINNET_LAUNCH.md](docs/MAINNET_LAUNCH.md#security-self-review-2026-10-05). The contracts are **not externally audited**. Slither (high/medium/low detectors) found nothing actionable.
 - The lottery's trust limits are documented [above](#daily-lottery-100-winners-equal-shares-free-entry).
 - The faucet cooldown is enforced on-chain against `block.timestamp`.
 - Defense API: signature + on-chain ownership + timestamp skew + per-IP rate limits + DB uniqueness.
+- One Supabase project per chain: the server stamps `app_meta.chain_id` on first use and refuses to read or write a project stamped for another chain. `/api/health` also reports whether the server RPC matches `NEXT_PUBLIC_CHAIN_ID`.
 - Supabase: RLS is enabled with public read only. Writes use the service-role key server-side (`server-only` imports).
 - Security headers (`X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`) are set in `next.config.ts`.
 - Lints that are deliberately excluded are justified in `contracts/foundry.toml`.

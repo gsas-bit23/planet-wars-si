@@ -26,8 +26,9 @@ function resolve(): Deployment | null {
   const merged = {
     chainId: TARGET_CHAIN_ID,
     deployBlock: Number(process.env.NEXT_PUBLIC_DEPLOY_BLOCK || base?.deployBlock || 0),
-    operator: base?.operator ?? ("0x0000000000000000000000000000000000000000" as Address),
-    deployer: base?.deployer ?? ("0x0000000000000000000000000000000000000000" as Address),
+    // Excluded from rewards (protocol wallets). Env overrides allow an env-only chain switch.
+    operator: env(process.env.NEXT_PUBLIC_OPERATOR_ADDRESS) ?? base?.operator ?? ("0x0000000000000000000000000000000000000000" as Address),
+    deployer: env(process.env.NEXT_PUBLIC_DEPLOYER_ADDRESS) ?? base?.deployer ?? ("0x0000000000000000000000000000000000000000" as Address),
     token: o.token ?? base?.token,
     treasury: o.treasury ?? base?.treasury,
     rewardPool: o.rewardPool ?? base?.rewardPool,
