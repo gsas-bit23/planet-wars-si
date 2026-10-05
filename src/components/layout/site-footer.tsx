@@ -9,7 +9,9 @@ const CONTRACTS = [
   ["PWSI token", "token"],
   ["Territory NFT", "territory"],
   ["Marketplace", "marketplace"],
-  ["Buyback & burn", "treasury"],
+  ["Revenue treasury", "treasury"],
+  ["Reward pool", "rewardPool"],
+  ["Daily draw", "dailyDraw"],
   ["Planet ops", "ops"],
   ["Faucet", "faucet"],
 ] as const;
@@ -39,6 +41,7 @@ export function SiteFooter() {
             <ul className="grid gap-1.5 font-mono text-xs">
               {CONTRACTS.map(([label, key]) => {
                 const a = addresses![key];
+                if (!a) return null; // e.g. no faucet on mainnet
                 const href = explorerAddress(a);
                 return (
                   <li key={key} className="flex justify-between gap-4 border-b border-line/50 pb-1.5">

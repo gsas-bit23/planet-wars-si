@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { getPwsiLink } from "@/lib/contracts";
 import { motion } from "motion/react";
 import { ArrowRight, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,8 @@ export function Hero() {
             className="mt-7 max-w-[520px] text-pretty text-[16px] leading-relaxed text-haze"
           >
             A rogue superintelligence annexed all eight planets. Claim territory plots with $PWSI, fortify them, trade
-            them, and hold the line when the SI strikes. Every token spent in the war is burned forever.
+            them, and hold the line when the SI strikes. Every token spent in the war is split: 10% burned forever, 90% to
+            the daily leaderboard and lottery pool.
           </motion.p>
 
           <motion.div
@@ -80,9 +82,13 @@ export function Hero() {
                 Choose a planet <ArrowRight className="transition group-hover/btn:translate-x-0.5" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline">
-              <Link href="/faucet">Claim free test PWSI</Link>
-            </Button>
+            {getPwsiLink && (
+              <Button asChild size="lg" variant="outline">
+                <Link href={getPwsiLink.href} {...(getPwsiLink.external ? { target: "_blank", rel: "noreferrer" } : {})}>
+                  {getPwsiLink.label}
+                </Link>
+              </Button>
+            )}
           </motion.div>
         </div>
       </div>

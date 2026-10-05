@@ -6,6 +6,7 @@ import { useAccount } from "wagmi";
 import { parseUnits, type Abi } from "viem";
 import { ArrowUpCircle, Shield } from "lucide-react";
 import { addresses, opsAbi } from "@/lib/contracts";
+import { getPwsiLink } from "@/lib/contracts";
 import { PLANET_BY_ID, decodeTokenId, plotLabel } from "@/lib/planets";
 import { useActiveListings, useMyTerritories, usePwsiBalance, useTerritoryStats } from "@/lib/hooks/use-game";
 import { useEnsureAllowance, useTx } from "@/lib/hooks/use-tx";
@@ -79,7 +80,7 @@ export function Portfolio() {
   return (
     <section className="mx-auto max-w-[1400px] px-5 py-10 md:px-8">
       <div className="mb-10 grid grid-cols-2 gap-6 rounded-md border border-line bg-hull/40 p-6 md:grid-cols-5">
-        <Stat label="PWSI balance" value={formatPWSI(balance)} tone="ion" sub={<Link href="/faucet" className="hover:text-ink">Top up at faucet →</Link>} />
+        <Stat label="PWSI balance" value={formatPWSI(balance)} tone="ion" sub={getPwsiLink ? <Link href={getPwsiLink.href} className="hover:text-ink">{getPwsiLink.external ? "Get PWSI →" : "Top up at faucet →"}</Link> : undefined} />
         <Stat label="Territories" value={rows.length} sub={`${myListings.length} listed on market`} />
         <Stat label="Worlds held" value={byPlanet.length} sub={byPlanet.map(([b]) => PLANET_BY_ID[b]?.name).slice(0, 3).join(", ") || "—"} />
         <Stat label="Total levels" value={totalLevels} />
@@ -100,7 +101,7 @@ export function Portfolio() {
               shield={r.shield}
               footer={
                 <div className="grid grid-cols-2 gap-2">
-                  <Button size="sm" variant="ion" disabled={r.level >= 10 || pending !== null} onClick={() => upgrade(r.id, r.nextCost)} title={`Burns ${formatPWSI(r.nextCost)} PWSI`} aria-label={r.level >= 10 ? "Max level" : `Upgrade to level ${r.level + 1} for ${formatPWSI(r.nextCost)} PWSI`}>
+                  <Button size="sm" variant="ion" disabled={r.level >= 10 || pending !== null} onClick={() => upgrade(r.id, r.nextCost)} title={`Costs ${formatPWSI(r.nextCost)} PWSI (10% burned, 90% to rewards)`} aria-label={r.level >= 10 ? "Max level" : `Upgrade to level ${r.level + 1} for ${formatPWSI(r.nextCost)} PWSI`}>
                     <ArrowUpCircle /> {r.level >= 10 ? "Max" : `${formatPWSI(r.nextCost)}`}
                   </Button>
                   <Button size="sm" variant="outline" disabled={r.shield >= 1000 || pending !== null} onClick={() => setShieldFor(r.id)}>
@@ -127,9 +128,9 @@ export function Portfolio() {
       <Dialog open={shieldFor !== null} onOpenChange={(o) => !o && setShieldFor(null)}>
         <DialogContent>
           <DialogTitle>Build shields</DialogTitle>
-          <DialogDescription>{shieldFor !== null && plotLabel(shieldFor)} · {SHIELD_UNIT} PWSI per unit, burned. Shields add defense power against SI attacks.</DialogDescription>
+          <DialogDescription>{shieldFor !== null && plotLabel(shieldFor)} · {SHIELD_UNIT} PWSI per unit (10% burned, 90% to the reward pool). Shields add defense power against SI attacks.</DialogDescription>
           <Input className="mt-5" inputMode="numeric" value={units} onChange={(e) => setUnits(e.target.value.replace(/\D/g, ""))} />
-          <div className="mt-3 flex justify-between font-mono text-xs"><span className="text-mist">Burn</span><span className="text-solar">{(Number(units) || 0) * SHIELD_UNIT} PWSI</span></div>
+          <div className="mt-3 flex justify-between font-mono text-xs"><span className="text-mist">Cost</span><span className="text-solar">{(Number(units) || 0) * SHIELD_UNIT} PWSI</span></div>
           <Button className="mt-5 w-full" size="lg" loading={pending !== null} disabled={!Number(units)} onClick={shield}>Build {units || 0} units</Button>
         </DialogContent>
       </Dialog>

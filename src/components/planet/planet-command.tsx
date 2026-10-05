@@ -10,6 +10,7 @@ import { parseUnits, type Abi } from "viem";
 import { ArrowLeft, Crosshair, Rocket, ShieldAlert, X } from "lucide-react";
 import { PLANET_BY_SLUG, PLANETS, ZONE_COLORS, ZONE_LABELS, MISSIONS, encodeTokenId, plotLabel } from "@/lib/planets";
 import { addresses, isDeployed, opsAbi, territoryAbi } from "@/lib/contracts";
+import { getPwsiLink } from "@/lib/contracts";
 import { decodeBitmap, useActiveListings, useBodies, useClaimedBitmap, useMyTerritories, usePwsiBalance, useZones } from "@/lib/hooks/use-game";
 import { useControlMap, useSiFeed } from "@/lib/hooks/use-si-feed";
 import { useEnsureAllowance, useTx } from "@/lib/hooks/use-tx";
@@ -258,7 +259,7 @@ export function PlanetCommand({ slug }: { slug: string }) {
               )}
               <div className="grid gap-2 border-t border-line pt-4 font-mono text-xs">
                 <div className="flex justify-between"><span className="text-mist">Total</span><span className="text-ink">{formatPWSI(total)} PWSI</span></div>
-                <div className="flex justify-between"><span className="text-mist">Burned (50%)</span><span className="text-solar">{formatPWSI(total / 2n)} PWSI</span></div>
+                <div className="flex justify-between"><span className="text-mist">Burned (10%) · to rewards (90%)</span><span className="text-solar">{formatPWSI(total / 10n)} · <span className="text-ion">{formatPWSI(total - total / 10n)}</span></span></div>
                 <div className="flex justify-between"><span className="text-mist">Your balance</span><span className={cn(balance !== undefined && balance < total ? "text-si" : "text-haze")}>{formatPWSI(balance)} PWSI</span></div>
               </div>
               {!isConnected ? (
@@ -274,8 +275,8 @@ export function PlanetCommand({ slug }: { slug: string }) {
                   {balance !== undefined && balance < total ? "Insufficient PWSI" : `Claim ${selected.size || ""} plot${selected.size === 1 ? "" : "s"}`}
                 </Button>
               )}
-              {isConnected && balance === 0n && (
-                <Link href="/faucet" className="text-center font-mono text-[11px] uppercase tracking-[0.14em] text-ion hover:underline">Get free test PWSI →</Link>
+              {isConnected && balance === 0n && getPwsiLink && (
+                <Link href={getPwsiLink.href} className="text-center font-mono text-[11px] uppercase tracking-[0.14em] text-ion hover:underline">{getPwsiLink.label} →</Link>
               )}
             </div>
           </Panel>
@@ -283,7 +284,7 @@ export function PlanetCommand({ slug }: { slug: string }) {
           <Panel>
             <PanelHeader>
               <div className="flex items-center gap-2"><Rocket className="size-4 text-solar" /><h3 className="font-display text-lg font-bold tracking-tight">Missions</h3></div>
-              <Badge tone="neutral">100% burned</Badge>
+              <Badge tone="neutral">10% burn · 90% rewards</Badge>
             </PanelHeader>
             <div className="flex flex-col gap-2 p-4">
               {MISSIONS.map((m) => (

@@ -27,7 +27,7 @@ export function FeeBreakdown({ price, feeBps }: { price: bigint; feeBps: number 
   return (
     <div className="grid gap-2 rounded-sm border border-line bg-void/50 p-4 font-mono text-xs" data-testid="fee-breakdown">
       <div className="flex justify-between"><span className="text-mist">Price</span><span>{formatPWSI(price, { digits: 4 })} PWSI</span></div>
-      <div className="flex justify-between"><span className="flex items-center gap-1.5 text-mist"><Flame className="size-3.5 text-solar" />Protocol fee ({feeBps / 100}%) → burned</span><span className="text-solar">{formatPWSI(fee, { digits: 4 })} PWSI</span></div>
+      <div className="flex justify-between"><span className="flex items-center gap-1.5 text-mist"><Flame className="size-3.5 text-solar" />Protocol fee ({feeBps / 100}%) → 10% burn / 90% rewards</span><span className="text-solar">{formatPWSI(fee, { digits: 4 })} PWSI</span></div>
       <div className="flex justify-between border-t border-line pt-2"><span className="text-mist">Seller receives</span><span>{formatPWSI(price - fee, { digits: 4 })} PWSI</span></div>
     </div>
   );
@@ -125,7 +125,7 @@ export function Marketplace() {
         <Stat label="Floor" value={floor !== undefined ? `${formatPWSI(floor)}` : "—"} sub="PWSI" />
         <Stat label="Volume" value={formatPWSI(stats?.volume, { compact: true })} sub="PWSI all-time" />
         <Stat label="Trades" value={stats ? Number(stats.trades) : "—"} />
-        <Stat label="Fees burned" value={formatPWSI(stats?.feeBurned)} sub={`${feeBps / 100}% of every sale`} tone="solar" />
+        <Stat label="Fee revenue" value={formatPWSI(stats?.bySource[4])} sub={`${feeBps / 100}% of every sale · split 10/90`} tone="solar" />
       </div>
 
       <Tabs defaultValue="buy">

@@ -15,6 +15,7 @@ export function LiveStatsBar() {
 
   const items = [
     { label: "PWSI burned", value: <Counter value={n(s?.burned)} />, accent: "text-solar" },
+    { label: "Reward pool", value: <Counter value={n(s?.rewardsAvailable)} />, accent: "text-ion" },
     { label: "Plots reclaimed", value: <Counter value={Number(s?.territoriesClaimed ?? 0n)} /> },
     { label: "Market trades", value: <Counter value={Number(s?.trades ?? 0n)} /> },
     { label: "SI control", value: <><Counter value={avg} decimals={1} />%</>, accent: "text-si" },
@@ -23,7 +24,7 @@ export function LiveStatsBar() {
 
   return (
     <div className="border-t border-line/70 bg-void/60 backdrop-blur-md">
-      <div className="mx-auto grid max-w-[1400px] grid-cols-2 divide-line/70 px-5 sm:grid-cols-3 md:grid-cols-5 md:divide-x md:px-8">
+      <div className="mx-auto grid max-w-[1400px] grid-cols-2 divide-line/70 px-5 sm:grid-cols-3 md:grid-cols-6 md:divide-x md:px-8">
         {items.map((it, i) => (
           <div key={it.label} className={`flex flex-col gap-1 py-4 md:px-6 ${i === 0 ? "md:pl-0" : ""} ${i > 2 ? "hidden md:flex" : ""}`}>
             <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-mist">{it.label}</span>

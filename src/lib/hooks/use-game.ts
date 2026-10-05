@@ -3,7 +3,16 @@
 import { useMemo } from "react";
 import { useAccount, useReadContract, useReadContracts } from "wagmi";
 import { encodeAbiParameters, keccak256, type Address } from "viem";
-import { addresses, faucetAbi, marketplaceAbi, opsAbi, territoryAbi, tokenAbi, treasuryAbi } from "@/lib/contracts";
+import {
+  addresses,
+  faucetAbi,
+  marketplaceAbi,
+  opsAbi,
+  rewardPoolAbi,
+  territoryAbi,
+  tokenAbi,
+  treasuryAbi,
+} from "@/lib/contracts";
 import type { Zone } from "@/lib/planets";
 
 const enabled = addresses !== null;
@@ -89,22 +98,30 @@ export function decodeBitmap(words: readonly bigint[] | undefined, supply: numbe
   return out;
 }
 
+export const REVENUE_SOURCES = ["Claims", "Upgrades", "Shields", "Missions", "Market fees", "Royalties", "Buybacks", "Other"] as const;
+
+/** Protocol-wide stats. Burn figures come from OUR treasury (works with external tokens without burn counters). */
 export function useProtocolStats() {
   return useReadContracts({
     allowFailure: false,
     contracts: [
       { address: A.token, abi: tokenAbi, functionName: "totalSupply" },
-      { address: A.token, abi: tokenAbi, functionName: "totalBurned" },
-      { address: A.token, abi: tokenAbi, functionName: "totalMinted" },
-      { address: A.treasury, abi: treasuryAbi, functionName: "totalFeesBurned" },
-      { address: A.treasury, abi: treasuryAbi, functionName: "totalBuybackBurned" },
-      { address: A.ops, abi: opsAbi, functionName: "totalSinkBurned" },
-      { address: A.territory, abi: territoryAbi, functionName: "totalPrimaryBurned" },
+      { address: A.treasury, abi: treasuryAbi, functionName: "totalBurned" },
+      { address: A.treasury, abi: treasuryAbi, functionName: "totalPooled" },
+      { address: A.treasury, abi: treasuryAbi, functionName: "totalRevenue" },
+      { address: A.treasury, abi: treasuryAbi, functionName: "revenueBreakdown" },
+      { address: A.treasury, abi: treasuryAbi, functionName: "burnBps" },
+      { address: A.rewardPool, abi: rewardPoolAbi, functionName: "rewardsAvailable" },
+      { address: A.rewardPool, abi: rewardPoolAbi, functionName: "airdropAvailable" },
+      { address: A.rewardPool, abi: rewardPoolAbi, functionName: "outstanding" },
+      { address: A.rewardPool, abi: rewardPoolAbi, functionName: "totalClaimed" },
       { address: A.marketplace, abi: marketplaceAbi, functionName: "totalVolume" },
       { address: A.marketplace, abi: marketplaceAbi, functionName: "tradeCount" },
       { address: A.marketplace, abi: marketplaceAbi, functionName: "feeBps" },
-      { address: A.faucet, abi: faucetAbi, functionName: "claimCount" },
       { address: A.territory, abi: territoryAbi, functionName: "totalSupply" },
+      { address: A.rewardPool, abi: rewardPoolAbi, functionName: "epochCap" },
+      { address: A.treasury, abi: treasuryAbi, functionName: "pendingBurnBps" },
+      { address: A.treasury, abi: treasuryAbi, functionName: "pendingBurnBpsEta" },
     ],
     query: {
       enabled,
@@ -112,18 +129,32 @@ export function useProtocolStats() {
       select: (r) => ({
         supply: r[0] as bigint,
         burned: r[1] as bigint,
-        minted: r[2] as bigint,
-        feeBurned: r[3] as bigint,
-        buybackBurned: r[4] as bigint,
-        sinkBurned: r[5] as bigint,
-        primaryBurned: r[6] as bigint,
-        volume: r[7] as bigint,
-        trades: r[8] as bigint,
-        feeBps: Number(r[9]),
-        faucetClaims: r[10] as bigint,
-        territoriesClaimed: r[11] as bigint,
+        pooled: r[2] as bigint,
+        revenue: r[3] as bigint,
+        bySource: (r[4] as readonly bigint[]).map((v) => v),
+        burnBps: Number(r[5]),
+        rewardsAvailable: r[6] as bigint,
+        airdropAvailable: r[7] as bigint,
+        outstanding: r[8] as bigint,
+        totalClaimed: r[9] as bigint,
+        volume: r[10] as bigint,
+        trades: r[11] as bigint,
+        feeBps: Number(r[12]),
+        territoriesClaimed: r[13] as bigint,
+        epochCap: r[14] as bigint,
+        pendingBurnBps: Number(r[15]),
+        pendingBurnBpsEta: Number(r[16]),
       }),
     },
+  });
+}
+
+export function useFaucetClaims() {
+  return useReadContract({
+    address: A.faucet ?? undefined,
+    abi: faucetAbi,
+    functionName: "claimCount",
+    query: { enabled: enabled && !!A.faucet, refetchInterval: 30_000 },
   });
 }
 

@@ -3,9 +3,9 @@ import { SectionHeading } from "@/components/ui/section-heading";
 import { Reveal } from "./reveal";
 
 const STEPS = [
-  { icon: Crosshair, title: "Claim", body: "Pick plots on any planet's grid and claim them from the SI with PWSI. Half of every claim is burned." },
-  { icon: ShieldHalf, title: "Fortify", body: "Upgrade territories (levels 1–10) and build shields. Every PWSI spent on upgrades is burned." },
-  { icon: Repeat, title: "Trade", body: "List and buy territories peer-to-peer. A 1% fee on each sale goes to the treasury and is burned instantly." },
+  { icon: Crosshair, title: "Claim", body: "Pick plots on any planet's grid and claim them from the SI with PWSI. 10% of every claim is burned, 90% funds daily rewards." },
+  { icon: ShieldHalf, title: "Fortify", body: "Upgrade territories (levels 1–10) and build shields. Upgrades and shields feed the same 10% burn / 90% reward split." },
+  { icon: Repeat, title: "Trade", body: "List and buy territories peer-to-peer. A 1% fee on each sale goes to the treasury and is split instantly. Trades never score on the leaderboard." },
   { icon: Flame, title: "Defend", body: "The SI attacks worlds daily. Owners commit territories to defend; launch missions to weaken its grip." },
 ];
 

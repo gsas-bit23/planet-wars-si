@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Portfolio", description: "Your terri
 export default function PortfolioPage() {
   return (
     <>
-      <PageHeader eyebrow="Command · your holdings" title={<>Your <span className="font-serif font-normal italic text-ion">territory.</span></>} description="Every plot you hold, its level and shield strength. Upgrades and shields burn PWSI and persist with the territory if it changes hands." />
+      <PageHeader eyebrow="Command · your holdings" title={<>Your <span className="font-serif font-normal italic text-ion">territory.</span></>} description="Every plot you hold, its level and shield strength. Upgrades and shields cost PWSI (10% burned, 90% to the reward pool) and persist with the territory if it changes hands." />
       <Portfolio />
     </>
   );

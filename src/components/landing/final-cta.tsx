@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getPwsiLink } from "@/lib/contracts";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "./reveal";
 
@@ -13,7 +14,11 @@ export function FinalCta() {
               The SI is counting on you <span className="font-serif font-normal italic text-ion">not</span> showing up.
             </h2>
             <div className="flex flex-wrap gap-3">
-              <Button asChild size="lg"><Link href="/faucet">Get test PWSI</Link></Button>
+              {getPwsiLink ? (
+                <Button asChild size="lg"><Link href={getPwsiLink.href} {...(getPwsiLink.external ? { target: "_blank", rel: "noreferrer" } : {})}>{getPwsiLink.external ? getPwsiLink.label : "Get test PWSI"}</Link></Button>
+              ) : (
+                <Button asChild size="lg"><Link href="/rewards">Daily rewards</Link></Button>
+              )}
               <Button asChild size="lg" variant="outline"><Link href="/planets/earth">Reclaim Earth</Link></Button>
             </div>
           </div>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAccount, useBalance, useBlock, useReadContracts } from "wagmi";
 import type { Abi } from "viem";
 import { Droplets, ExternalLink, Fuel } from "lucide-react";
-import { addresses, faucetAbi, isDeployed } from "@/lib/contracts";
+import { faucetAbi, faucetAddress, isDeployed } from "@/lib/contracts";
 import { GAS_FAUCETS, targetChain } from "@/lib/chains";
 import { usePwsiBalance } from "@/lib/hooks/use-game";
 import { useTx } from "@/lib/hooks/use-tx";
@@ -31,16 +31,16 @@ export function Faucet() {
 
   const { data } = useReadContracts({
     allowFailure: false,
-    contracts: addresses
+    contracts: faucetAddress
       ? [
-          { address: addresses.faucet, abi: faucetAbi, functionName: "dripAmount" },
-          { address: addresses.faucet, abi: faucetAbi, functionName: "cooldown" },
-          { address: addresses.faucet, abi: faucetAbi, functionName: "nextClaimAt", args: [address ?? "0x0000000000000000000000000000000000000000"] },
-          { address: addresses.faucet, abi: faucetAbi, functionName: "totalDripped" },
-          { address: addresses.faucet, abi: faucetAbi, functionName: "claimCount" },
+          { address: faucetAddress, abi: faucetAbi, functionName: "dripAmount" },
+          { address: faucetAddress, abi: faucetAbi, functionName: "cooldown" },
+          { address: faucetAddress, abi: faucetAbi, functionName: "nextClaimAt", args: [address ?? "0x0000000000000000000000000000000000000000"] },
+          { address: faucetAddress, abi: faucetAbi, functionName: "totalDripped" },
+          { address: faucetAddress, abi: faucetAbi, functionName: "claimCount" },
         ]
       : [],
-    query: { enabled: isDeployed, refetchInterval: 15_000 },
+    query: { enabled: !!faucetAddress, refetchInterval: 15_000 },
   });
   const [drip, cooldown, nextAt, totalDripped, claims] = (data ?? []) as [bigint?, bigint?, bigint?, bigint?, bigint?];
   const nextMs = nextAt ? Number(nextAt) * 1000 : 0;
@@ -49,8 +49,8 @@ export function Faucet() {
   const gasFaucets = GAS_FAUCETS[targetChain.id] ?? [];
 
   async function claim() {
-    if (!addresses) return;
-    await send(`Claim ${formatPWSI(drip)} PWSI`, { address: addresses.faucet, abi: faucetAbi as Abi, functionName: "claim" });
+    if (!faucetAddress) return;
+    await send(`Claim ${formatPWSI(drip)} PWSI`, { address: faucetAddress, abi: faucetAbi as Abi, functionName: "claim" });
   }
 
   const progress = nextMs > now && cooldown ? 1 - (nextMs - now) / (Number(cooldown) * 1000) : 1;

@@ -13,10 +13,10 @@ const n = (v?: bigint) => (v === undefined ? 0 : Number(formatUnits(v, 18)));
 
 export function Tokenomics() {
   const { data: s } = useProtocolStats();
+  const burnPct = s ? s.burnBps / 100 : 10;
   const routes = [
-    { label: "Primary claims", sub: "50% of every claim", value: n(s?.primaryBurned), color: "bg-ion" },
-    { label: "Upgrades, shields, missions", sub: "100% of sink spend", value: n(s?.sinkBurned), color: "bg-solar" },
-    { label: "Marketplace fees", sub: `${(s?.feeBps ?? 100) / 100}% of every sale`, value: n(s?.feeBurned), color: "bg-si" },
+    { label: "Burned forever", sub: `${burnPct}% of all revenue`, value: n(s?.burned), color: "bg-solar" },
+    { label: "Reward pool", sub: `${100 - burnPct}% of all revenue → leaderboard + lottery`, value: n(s?.pooled), color: "bg-ion" },
   ];
   const total = routes.reduce((a, r) => a + r.value, 0) || 1;
 
@@ -30,27 +30,27 @@ export function Tokenomics() {
             eyebrow="$PWSI tokenomics"
             title={
               <>
-                Spent means <span className="text-solar">burned.</span>
+                Spent means <span className="text-solar">burned</span> <span className="font-serif font-normal italic text-ion">and</span> shared.
               </>
             }
-            description="PWSI is the game's utility token. There is no staking, no yield and no promise of value — it fuels claims, upgrades and trades, and every sink destroys supply. On testnet a rate-limited faucet is the only mint."
+            description="PWSI is the game's utility token. There is no staking, no yield and no promise of value. All game revenue (claims, upgrades, shields, missions, the 1% market fee) is split on arrival: 10% is burned, 90% funds daily leaderboard and lottery rewards. On testnet a rate-limited faucet is the only mint; on mainnet the token is launched on the pons launchpad."
           />
           <ul className="mt-10 grid gap-3 text-sm text-haze">
-            <li className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-ion" />Lifetime mint cap of 1B PWSI — burned tokens can never be re-minted.</li>
-            <li className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-si" />1% marketplace fee → BuybackBurnTreasury → burned in the same transaction.</li>
-            <li className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-solar" />On mainnet the treasury can also swap ETH revenue for PWSI on a DEX and burn it.</li>
+            <li className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-solar" />Burn share bounded to 5–50% on-chain; any change waits behind a 2-day timelock.</li>
+            <li className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-ion" />Each day pays at most 20% of the unallocated pool: top 100 by score (70%) and 100 random active players (30%).</li>
+            <li className="flex gap-3"><span className="mt-2 size-1.5 shrink-0 rounded-full bg-si" />Rewards are claimed with Merkle proofs; unclaimed amounts return to the pool after 30 days.</li>
           </ul>
           <Link href="/burn" className="mt-8 inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.16em] text-ink hover:text-solar">
-            Open the burn dashboard <ArrowRight className="size-4" />
+            Open the revenue dashboard <ArrowRight className="size-4" />
           </Link>
         </Reveal>
 
         <Reveal delay={0.1}>
           <Panel hud className="p-7 md:p-9">
             <div className="flex flex-col gap-1">
-              <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-mist">Total PWSI burned · live from chain</span>
-              <span className="font-display text-6xl font-bold tabular-nums tracking-[-0.04em] text-solar md:text-7xl">
-                <Counter value={n(s?.burned)} />
+              <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-mist">Game revenue processed · live from chain</span>
+              <span className="font-display text-6xl font-bold tabular-nums tracking-[-0.04em] text-ink md:text-7xl">
+                <Counter value={n(s?.revenue)} />
               </span>
             </div>
             <div className="mt-8 flex h-3 overflow-hidden rounded-full bg-line">
@@ -80,8 +80,8 @@ export function Tokenomics() {
                 <div className="mt-1 font-display text-lg font-bold tabular-nums"><Counter value={n(s?.supply)} /></div>
               </div>
               <div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-mist">Minted</div>
-                <div className="mt-1 font-display text-lg font-bold tabular-nums"><Counter value={n(s?.minted)} /></div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-mist">Rewards claimed</div>
+                <div className="mt-1 font-display text-lg font-bold tabular-nums"><Counter value={n(s?.totalClaimed)} /></div>
               </div>
               <div>
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-mist">Volume</div>

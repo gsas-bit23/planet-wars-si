@@ -15,6 +15,20 @@ export const robinhoodChainTestnet = defineChain({
   },
 });
 
+/**
+ * Robinhood Chain mainnet (chain 4663, Arbitrum Orbit). The game token on mainnet is launched
+ * externally (pons launchpad), so this chain has no faucet. Nothing is deployed here yet.
+ */
+export const robinhoodChainMainnet = defineChain({
+  id: 4663,
+  name: "Robinhood Chain",
+  nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
+  rpcUrls: {
+    default: { http: [process.env.NEXT_PUBLIC_ROBINHOOD_MAINNET_RPC_URL || "https://rpc.mainnet.chain.robinhood.com"] },
+  },
+  blockExplorers: { default: { name: "Blockscout", url: "https://robinhoodchain.blockscout.com" } },
+});
+
 export const localAnvil = defineChain({
   ...foundry,
   name: "Anvil (local)",
@@ -29,6 +43,7 @@ export const baseSepoliaFallback = defineChain({
 
 const CHAINS: Record<number, Chain> = {
   [robinhoodChainTestnet.id]: robinhoodChainTestnet,
+  [robinhoodChainMainnet.id]: robinhoodChainMainnet,
   [localAnvil.id]: localAnvil,
   [baseSepoliaFallback.id]: baseSepoliaFallback,
 };
@@ -43,6 +58,7 @@ export const GAS_FAUCETS: Record<number, { label: string; url: string }[]> = {
   ],
   84532: [{ label: "Base Sepolia faucets", url: "https://docs.base.org/base-chain/tools/network-faucets" }],
   31337: [],
+  4663: [],
 };
 
 export function explorerTx(hash: string) {

@@ -39,9 +39,9 @@ export function SiteHeader() {
       )}
     >
       <div className="mx-auto flex h-[var(--header-h)] max-w-[1400px] items-center justify-between gap-6 px-5 md:px-8">
-        <div className="flex items-center gap-10">
+        <div className="flex items-center gap-8">
           <Logo />
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
+          <nav className="hidden items-center gap-0.5 xl:flex" aria-label="Main">
             {NAV.map((item) => {
               const active = pathname === item.href || pathname.startsWith(item.href + "/");
               return (
@@ -49,7 +49,7 @@ export function SiteHeader() {
                   key={item.href}
                   href={item.href}
                   className={cn(
-                    "relative rounded-xs px-3 py-1.5 font-mono text-[11.5px] uppercase tracking-[0.14em] transition-colors",
+                    "relative whitespace-nowrap rounded-xs px-2.5 py-1.5 font-mono text-[11px] uppercase tracking-[0.12em] transition-colors",
                     active ? "text-ink" : "text-mist hover:text-ink",
                   )}
                 >
@@ -73,7 +73,7 @@ export function SiteHeader() {
           </span>
           <WalletButton />
           <button
-            className="grid size-9 place-items-center rounded-sm border border-line-strong text-haze lg:hidden"
+            className="grid size-9 place-items-center rounded-sm border border-line-strong text-haze xl:hidden"
             onClick={() => setOpen((o) => !o)}
             aria-label="Toggle menu"
             aria-expanded={open}
@@ -88,7 +88,7 @@ export function SiteHeader() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-line lg:hidden"
+            className="overflow-hidden border-t border-line xl:hidden"
           >
             <div className="flex flex-col px-5 py-3">
               {NAV.map((item) => (
